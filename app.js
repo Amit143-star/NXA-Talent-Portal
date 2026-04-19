@@ -1,7 +1,43 @@
 /**
- * NXA TALENT - CONSOLIDATED APP ENGINE v1.1
- * Engineered for local and cloud compatibility.
+ * NXA TALENT - INDUSTRIAL CLOUD ENGINE v1.2
+ * Engineered for Real-Time Global Synchronization via Firebase Firestore.
  */
+
+// --- 0. FIREBASE CLOUD INITIALIZATION ---
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_ID",
+    appId: "YOUR_APP_ID"
+};
+
+// Initialize Firebase
+if (typeof firebase !== 'undefined') {
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    console.log("NXA_CLOUD: NEURAL_UPLINK_ESTABLISHED");
+} else {
+    console.warn("NXA_CLOUD_CRITICAL: FIREBASE_SDK_NOT_LOADED. Falling back to local manifest.");
+}
+
+// Helper for Firestore Sync
+const Cloud = {
+    async set(col, id, data) {
+        try { await firebase.firestore().collection(col).doc(id).set(data, { merge: true }); } 
+        catch(e) { console.warn("CLOUD_WRITE_FAIL:", e); }
+    },
+    async get(col, id) {
+        try { const doc = await firebase.firestore().collection(col).doc(id).get(); return doc.exists ? doc.data() : null; }
+        catch(e) { return null; }
+    },
+    async getAll(col) {
+        try { const snap = await firebase.firestore().collection(col).get(); return snap.docs.map(d => d.data()); }
+        catch(e) { return []; }
+    }
+};
 
 // --- 1. STATE MANAGER ---
 const AppState = {
@@ -75,6 +111,7 @@ class NXAEngine {
         // Fail-safe Mask Removal
         setTimeout(() => {
             this.clearMask();
+            this.syncCloudState(); // INITIALIZE REAL-TIME UPLINK
             try { this.render(AppState); } catch(e) { console.error("NXA_RENDER_CRASH:", e); }
         }, 800);
 
@@ -85,7 +122,7 @@ class NXAEngine {
         });
     }
 
-    handleGlobalBroadcast() {
+    async handleGlobalBroadcast() {
         const msgInput = document.getElementById('broadcastMsg');
         const typeInput = document.getElementById('broadcastType');
         if (!msgInput || !typeInput) return;
@@ -94,17 +131,41 @@ class NXAEngine {
         const type = typeInput.value;
 
         if (!msg) {
-            alert('NXA_SIGNAL: Message content required.');
+            alert('NXA_SIGNAL: Content required.');
             return;
         }
 
+        const signal = { id: Date.now(), type, msg, time: 'Just Now', author: 'SUPER_ADMIN' };
+        
+        // 1. Local Failsafe
         const alerts = JSON.parse(localStorage.getItem('nxa_system_alerts')) || [];
-        alerts.unshift({ id: Date.now(), type, msg, time: 'Just Now' });
+        alerts.unshift(signal);
         localStorage.setItem('nxa_system_alerts', JSON.stringify(alerts));
+
+        // 2. CLOUD DISPATCH
+        await Cloud.set('nxa_broadcasts', String(signal.id), signal);
 
         msgInput.value = '';
         alert('GLOBAL_SIGNAL_BROADCAST_SUCCESS');
-        this.render(AppState); // Refresh the view if they are looking at specific feeds
+    }
+
+    syncCloudState() {
+        if (typeof firebase === 'undefined') return;
+        
+        // SYNC IDENTITIES MATRIX
+        firebase.firestore().collection('nxa_identities').onSnapshot(snap => {
+            const users = snap.docs.map(doc => doc.data());
+            localStorage.setItem('nxa_users', JSON.stringify(users));
+            if (AppState.view === 'student_mgmt') this.render(AppState);
+        });
+
+        // SYNC BROADCAST MATRIX
+        firebase.firestore().collection('nxa_broadcasts').onSnapshot(snap => {
+            const alerts = snap.docs.map(doc => doc.data().id ? doc.data() : null).filter(a => a);
+            alerts.sort((a,b) => b.id - a.id);
+            localStorage.setItem('nxa_system_alerts', JSON.stringify(alerts));
+            if (AppState.view === 'notifications') this.render(AppState);
+        });
     }
 
     handleDossierTermination(email) {
@@ -270,31 +331,27 @@ class NXAEngine {
         }
     }
 
-    handleRegister(name, emailRaw, pass) {
+    async handleRegister(name, emailRaw, pass) {
         try {
             const email = emailRaw.toLowerCase().trim();
+            const newUser = { name, email, pass, role: 'student', date: new Date().toISOString() };
+            
+            // 1. Local Persistence (Failsafe)
             const users = JSON.parse(localStorage.getItem('nxa_users')) || [];
-
-            const existing = users.find(u => u.email.toLowerCase() === email);
-            if (existing) {
-                if (existing.pass === pass) {
-                    // INDUSTRIAL DIRECT LOGIN
-                    AppState.setUser(existing);
-                    return;
-                } else {
-                    alert("SECURITY: Core ID already manifest. Access Key mismatch. Redirecting to Sign In.");
-                    this.mountAuth('login');
-                    return;
-                }
+            if (!users.find(u => u.email === email)) {
+                users.push(newUser);
+                localStorage.setItem('nxa_users', JSON.stringify(users));
             }
 
-            const newUser = { name, email, pass };
-            users.push(newUser);
-            localStorage.setItem('nxa_users', JSON.stringify(users));
+            // 2. CLOUD MANIFESTATION (Critical for Super Admin)
+            await Cloud.set('nxa_identities', email, newUser);
+            
+            alert("IDENTITY_SYNCHRONIZED: Welcome to NXA Talent.");
             AppState.setUser(newUser);
         } catch (err) {
             console.error('REG_ERROR:', err);
-            AppState.setUser({ name: 'Emergency Identity', email: emailRaw }, 'student');
+            alert("HANDSHAKE_ERROR: Retrying local manifest...");
+            AppState.setUser({ name: 'User', email: emailRaw }, 'student');
         }
     }
 
@@ -624,8 +681,8 @@ class NXAEngine {
 
                 <!-- BROADCAST COMMAND NODE (AUTHORIZED ROLES ONLY) -->
                 ${isAuthorizedToBroadcast ? `
-                <div style="background: rgba(0, 242, 255, 0.03); padding: 2.5rem; border-radius: 24px; border: 1px solid var(--accent-primary); margin-bottom: 4rem; position: relative; overflow: hidden;">
-                    <div style="position: absolute; top:0; right:0; padding: 10px; background: var(--accent-primary); color:#000; font-size: 0.5rem; font-weight: 900; letter-spacing: 2px;">BROADCAST_ACTIVE</div>
+                <div style="background: rgba(0, 229, 255, 0.03); padding: 2.5rem; border-radius: 24px; border: 1px solid var(--accent-primary); margin-bottom: 4rem; position: relative; overflow: hidden;">
+                    <div style="position: absolute; top:0; right:0; padding: 10px; background: var(--accent-primary); color:#000; font-size: 0.5rem; font-weight: 900; letter-spacing: 2px;">ANYONE_CAN_HEAR_THIS</div>
                     <h3 style="margin: 0 0 1.5rem 0; font-size: 1rem; letter-spacing: 2px; font-family: var(--font-heading);">MANIFEST_GLOBAL_SIGNAL</h3>
                     <div style="display: grid; gap: 1.2rem;">
                         <input id="broadcastMsg" type="text" placeholder="Type global industrial alert..." style="width: 100%; background: #000; border: 1px solid var(--glass-border); padding: 15px; border-radius: 12px; color: #fff; font-size: 0.85rem; outline: none; transition: 0.3s;">
