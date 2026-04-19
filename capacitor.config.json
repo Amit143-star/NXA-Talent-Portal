@@ -1,6 +1,10 @@
 {
   "appId": "com.nxatalent.app",
-  "appName": "NXA Talent",
-  "webDir": "www",
-  "bundledWebRuntime": false
+  "appName": "NXA Talent Portal",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://amit143-star.github.io/NXA-Talent-Portal/",
+    "cleartext": true
+  }
 }

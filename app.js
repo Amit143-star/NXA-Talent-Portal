@@ -77,6 +77,43 @@ class NXAEngine {
             this.clearMask();
             try { this.render(AppState); } catch(e) { console.error("NXA_RENDER_CRASH:", e); }
         }, 800);
+
+        // Global Industrial Command Delegation
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'sendBroadcast') this.handleGlobalBroadcast();
+            if (e.target.classList.contains('btn-delete')) this.handleDossierTermination(e.target.dataset.email);
+        });
+    }
+
+    handleGlobalBroadcast() {
+        const msgInput = document.getElementById('broadcastMsg');
+        const typeInput = document.getElementById('broadcastType');
+        if (!msgInput || !typeInput) return;
+
+        const msg = msgInput.value.trim();
+        const type = typeInput.value;
+
+        if (!msg) {
+            alert('NXA_SIGNAL: Message content required.');
+            return;
+        }
+
+        const alerts = JSON.parse(localStorage.getItem('nxa_system_alerts')) || [];
+        alerts.unshift({ id: Date.now(), type, msg, time: 'Just Now' });
+        localStorage.setItem('nxa_system_alerts', JSON.stringify(alerts));
+
+        msgInput.value = '';
+        alert('GLOBAL_SIGNAL_BROADCAST_SUCCESS');
+        this.render(AppState); // Refresh the view if they are looking at specific feeds
+    }
+
+    handleDossierTermination(email) {
+        if (!confirm(`CAUTION: Terminate identity dossier for ${email}?`)) return;
+        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+        delete profiles[email];
+        localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+        alert('DOSSIER_TERMINATED');
+        this.render(AppState);
     }
 
     clearMask() {
@@ -139,22 +176,20 @@ class NXAEngine {
                             <input type="password" id="pass" required placeholder="••••••••">
                         </div>
                         <button type="submit" id="submitBtn" class="btn-primary-lg ${isAdminMode ? 'btn-admin' : ''}">
-                            ${isAdminMode ? 'INITIALIZE SYSTEM' : (mode === 'login' ? 'INITIALIZE SESSION' : 'AUTHORIZE IDENTITY')}
+                            ${isAdminMode ? 'SYSTEM ACCESS' : (mode === 'login' ? 'SIGN IN' : 'REGISTER ACCOUNT')}
                         </button>
                     </form>
 
 
 
-                    <p class="auth-switch" style="margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem;">
+                    <div class="auth-footer" style="margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem; text-align: center;">
                         ${isAdminMode ? 
-                            '<a href="#" id="toggleAuth" style="color: var(--accent-primary); font-weight: 800; text-decoration: none;">← RETURN TO STUDENT CORE</a>' : 
+                            '<a href="#" id="toggleAuth" style="color: var(--accent-primary); font-size: 0.75rem; font-weight: 800; text-decoration: none; letter-spacing: 1px;">← RETURN TO STUDENT PORTAL</a>' : 
                             (mode === 'login' ? 
-                                `<div style="margin-bottom: 10px; font-size: 0.75rem; color: var(--text-dim);">NEW TO NXA TALENT?</div>
-                                 <a href="#" id="toggleAuth" class="btn-secondary" style="display: block; margin-bottom: 15px; text-decoration: none; padding: 12px; border: 1px solid var(--glass-border); border-radius: 8px; color: #fff;">REGISTER IDENTITY</a>
-                                 <div style="font-size: 0.7rem;"><a href="#" id="toAdmin" style="color: var(--text-dim);">Admin Command Access</a></div>` : 
-                                `<div style="margin-bottom: 10px; font-size: 0.75rem; color: var(--text-dim);">ALREADY HAVE A CORE ID?</div>
-                                 <a href="#" id="toggleAuth" class="btn-secondary" style="display: block; text-decoration: none; padding: 12px; border: 1px solid var(--glass-border); border-radius: 8px; color: #fff;">LOGIN VERIFICATION</a>`)}
-                    </p>
+                                `<a href="#" id="toggleAuth" style="display: block; margin-bottom: 15px; color: var(--text-main); font-size: 0.75rem; text-decoration: none; font-weight: 800; letter-spacing: 1.5px;">CREATE NEW ACCOUNT</a>
+                                 <div style="font-size: 0.6rem; opacity: 0.5;"><a href="#" id="toAdmin" style="color: var(--text-dim); text-decoration: none; letter-spacing: 2px;">ADMIN_ACCESS</a></div>` : 
+                                `<a href="#" id="toggleAuth" style="display: block; color: var(--text-main); font-size: 0.75rem; text-decoration: none; font-weight: 800; letter-spacing: 1.5px;">ALREADY REGISTERED? SIGN IN</a>`)}
+                    </div>
                 </div>
             </div>
         `;
@@ -238,23 +273,24 @@ class NXAEngine {
     handleRegister(name, emailRaw, pass) {
         try {
             const email = emailRaw.toLowerCase().trim();
-            let users = [];
-            try {
-                users = JSON.parse(localStorage.getItem('nxa_users')) || [];
-            } catch(e) { users = []; }
+            const users = JSON.parse(localStorage.getItem('nxa_users')) || [];
 
             const existing = users.find(u => u.email.toLowerCase() === email);
             if (existing) {
-                // Silently upgrade to existing user
-                AppState.setUser(existing);
-                return;
+                if (existing.pass === pass) {
+                    // INDUSTRIAL DIRECT LOGIN
+                    AppState.setUser(existing);
+                    return;
+                } else {
+                    alert("SECURITY: Core ID already manifest. Access Key mismatch. Redirecting to Sign In.");
+                    this.mountAuth('login');
+                    return;
+                }
             }
 
             const newUser = { name, email, pass };
             users.push(newUser);
             localStorage.setItem('nxa_users', JSON.stringify(users));
-            
-            // NO BLOCKING ALERTS
             AppState.setUser(newUser);
         } catch (err) {
             console.error('REG_ERROR:', err);
@@ -569,8 +605,12 @@ class NXAEngine {
         const pending = allUsers.filter(u => !profiles[u.email]);
 
         const isSuper = state.role === 'admin' && state.roleType === 'super';
+        const isMax = state.role === 'admin' && state.roleType === 'max';
         const isCenter = state.role === 'admin' && state.roleType === 'center';
-        const isAuthorized = isSuper || isCenter;
+        
+        // Super Admin can handle ALL manifestations; Max/Center are subordinate authorized.
+        const isAuthorizedToBroadcast = isSuper || isCenter || isMax;
+        const isAuthorizedToManage = isSuper || isMax;
 
         return `
             <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto;">
@@ -583,7 +623,7 @@ class NXAEngine {
                 </div>
 
                 <!-- BROADCAST COMMAND NODE (AUTHORIZED ROLES ONLY) -->
-                ${isAuthorized ? `
+                ${isAuthorizedToBroadcast ? `
                 <div style="background: rgba(0, 242, 255, 0.03); padding: 2.5rem; border-radius: 24px; border: 1px solid var(--accent-primary); margin-bottom: 4rem; position: relative; overflow: hidden;">
                     <div style="position: absolute; top:0; right:0; padding: 10px; background: var(--accent-primary); color:#000; font-size: 0.5rem; font-weight: 900; letter-spacing: 2px;">BROADCAST_ACTIVE</div>
                     <h3 style="margin: 0 0 1.5rem 0; font-size: 1rem; letter-spacing: 2px; font-family: var(--font-heading);">MANIFEST_GLOBAL_SIGNAL</h3>
@@ -634,36 +674,6 @@ class NXAEngine {
                         </div>
                     `).join('')}
                 </div>
-
-                <script>
-                    setTimeout(() => {
-                        const broadcastBtn = document.getElementById('sendBroadcast');
-                        if(broadcastBtn) broadcastBtn.onclick = () => {
-                            const msg = document.getElementById('broadcastMsg').value;
-                            const type = document.getElementById('broadcastType').value;
-                            if(!msg) return alert('Signal Content Required.');
-                            
-                            const alerts = JSON.parse(localStorage.getItem('nxa_system_alerts')) || [];
-                            alerts.push({ id: Date.now(), type, msg, time: new Date().toLocaleTimeString() });
-                            localStorage.setItem('nxa_system_alerts', JSON.stringify(alerts));
-                            
-                            document.getElementById('broadcastMsg').value = '';
-                            alert('SIGNAL_DISPATCHED: Global manifest updated.');
-                        };
-
-                        document.querySelectorAll('.btn-delete').forEach(btn => {
-                            btn.onclick = (e) => {
-                                if (confirm('TERMINATE_STUDENT_IDENTITY?')) {
-                                    const email = btn.dataset.email;
-                                    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                                    delete profiles[email];
-                                    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-                                    AppState.setView('student_mgmt');
-                                }
-                            };
-                        });
-                    }, 500);
-                </script>
             </section>
         `;
     }
