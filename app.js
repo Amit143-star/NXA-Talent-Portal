@@ -166,14 +166,34 @@ class NXAEngine {
             localStorage.setItem('nxa_system_alerts', JSON.stringify(alerts));
             if (AppState.view === 'notifications') this.render(AppState);
         });
+
+        // SYNC MASTER PROFILES MATRIX (FULL DETAILS)
+        firebase.firestore().collection('nxa_student_profiles').onSnapshot(snap => {
+            const profiles = {};
+            snap.forEach(doc => { profiles[doc.id] = doc.data(); });
+            localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+            if (AppState.view === 'student_mgmt') this.render(AppState);
+        });
     }
 
-    handleDossierTermination(email) {
+    async handleDossierTermination(email) {
         if (!confirm(`CAUTION: Terminate identity dossier for ${email}?`)) return;
+        
+        // 1. Local Purge
         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
         delete profiles[email];
         localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-        alert('DOSSIER_TERMINATED');
+        
+        // 2. CLOUD PURGE
+        try {
+            await firebase.firestore().collection('nxa_student_profiles').doc(email).delete();
+            await firebase.firestore().collection('nxa_identities').doc(email).delete();
+            alert('DOSSIER_TERMINATED: Cloud record purged.');
+        } catch(e) {
+            console.error('TERMINATION_FAIL:', e);
+            alert('LOCAL_PURGE_COMPLETE: Cloud sync pending...');
+        }
+        
         this.render(AppState);
     }
 
@@ -585,10 +605,11 @@ class NXAEngine {
                 setTimeout(() => {
                     const form = document.getElementById('dossierForm');
                     if (!form) return;
-                    form.onsubmit = (e) => {
+                    form.onsubmit = async (e) => {
                         e.preventDefault();
                         const btn = document.getElementById('dossierSubmit');
-                        btn.innerText = 'MANIFESTING...';
+                        const originalText = btn.innerText;
+                        btn.innerText = 'UPLOADING_TO_CLOUD...';
                         btn.disabled = true;
 
                         const data = {
@@ -615,12 +636,17 @@ class NXAEngine {
                             submittedAt: new Date().toLocaleString()
                         };
 
+                        // 1. Local Persistence (Failsafe)
                         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
                         profiles[data.email] = data;
                         localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
 
+                        // 2. INDUSTRIAL CLOUD UPLINK
+                        await Cloud.set('nxa_student_profiles', data.email, data);
+
                         if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
-                        setTimeout(() => AppState.setView('self'), 800);
+                        btn.innerText = 'DOSSIER_AUTHORIZED';
+                        setTimeout(() => AppState.setView('self'), 500);
                     };
                 }, 100);
             </script>
