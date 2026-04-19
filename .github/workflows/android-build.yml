@@ -20,12 +20,15 @@ jobs:
           node-version: 18
 
       - name: Manifest Dependencies
-        run: npm install
+        run: |
+          npm install
+          mkdir -p www
+          cp index.html app.js style.css hero.png www/
+          cp -r js css www/
 
       - name: Synchronize Android Platform
         run: |
           npx cap sync
-          npx cap update android
 
       - name: Setup Java Runtime
         uses: actions/setup-java@v3
