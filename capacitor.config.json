@@ -1,0 +1,6 @@
+{
+  "appId": "com.nxatalent.app",
+  "appName": "NXA Talent",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
