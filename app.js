@@ -227,12 +227,11 @@ window.NXAStopLive = async () => {
 window.NXACreateCourse = () => {
     const title = document.getElementById('new_c_title').value;
     const domain = document.getElementById('new_c_domain').value;
+    const desc = document.getElementById('new_c_desc').value;
     if(!title || !domain) return alert('Title and Domain required.');
     const courses = window.NXA.getCourses();
-    courses.push({ id: 'c' + Date.now(), title, domain });
+    courses.push({ id: 'c' + Date.now(), title, domain, desc, refs: [], videos: [], docs: [] });
     window.NXA.saveCourses(courses);
-    document.getElementById('new_c_title').value = '';
-    document.getElementById('new_c_domain').value = '';
     AppState.setView('course_admin');
 };
 
@@ -241,6 +240,73 @@ window.NXADeleteCourse = (id) => {
     const filtered = window.NXA.getCourses().filter(c => c.id !== id);
     window.NXA.saveCourses(filtered);
     AppState.setView('course_admin');
+};
+
+window.NXAOpenCourseEditor = (id) => {
+    AppState.setView('course_editor_' + id);
+};
+
+window.NXAAddResource = (courseId, type) => {
+    const courses = window.NXA.getCourses();
+    const course = courses.find(c => c.id === courseId);
+    if (!course) return;
+
+    if (type === 'ref') {
+        const title = document.getElementById('res_ref_title').value;
+        const url = document.getElementById('res_ref_url').value;
+        if (!title || !url) return alert('Reference title and URL required.');
+        if (!course.refs) course.refs = [];
+        course.refs.push({ title, url });
+        document.getElementById('res_ref_title').value = '';
+        document.getElementById('res_ref_url').value = '';
+    } else if (type === 'yt') {
+        const title = document.getElementById('res_yt_title').value;
+        const url = document.getElementById('res_yt_url').value;
+        if (!title || !url) return alert('Video title and YouTube URL required.');
+        const ytId = url.match(/(?:youtu\.be\/|v=)([^&\s]+)/)?.[1] || url;
+        if (!course.videos) course.videos = [];
+        course.videos.push({ title, ytId });
+        document.getElementById('res_yt_title').value = '';
+        document.getElementById('res_yt_url').value = '';
+    } else if (type === 'doc') {
+        const title = document.getElementById('res_doc_title').value;
+        const url = document.getElementById('res_doc_url').value;
+        if (!title || !url) return alert('Document title and link required.');
+        if (!course.docs) course.docs = [];
+        course.docs.push({ title, url });
+        document.getElementById('res_doc_title').value = '';
+        document.getElementById('res_doc_url').value = '';
+    } else if (type === 'file') {
+        const title = document.getElementById('res_file_title').value;
+        const fileInput = document.getElementById('res_file_input');
+        const file = fileInput.files[0];
+        if (!title || !file) return alert('File title and file required.');
+        if (file.size > 5 * 1024 * 1024) return alert('File too large. Max 5MB. Use a Drive link for larger files.');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (!course.docs) course.docs = [];
+            course.docs.push({ title, url: e.target.result, type: file.type, isFile: true });
+            window.NXA.saveCourses(courses);
+            alert('File uploaded successfully!');
+            AppState.setView('course_editor_' + courseId);
+        };
+        reader.readAsDataURL(file);
+        return;
+    }
+
+    window.NXA.saveCourses(courses);
+    AppState.setView('course_editor_' + courseId);
+};
+
+window.NXADeleteResource = (courseId, type, idx) => {
+    const courses = window.NXA.getCourses();
+    const course = courses.find(c => c.id === courseId);
+    if (!course) return;
+    if (type === 'ref') course.refs.splice(idx, 1);
+    else if (type === 'yt') course.videos.splice(idx, 1);
+    else if (type === 'doc') course.docs.splice(idx, 1);
+    window.NXA.saveCourses(courses);
+    AppState.setView('course_editor_' + courseId);
 };
 
 window.NXAShowAssignModal = (courseId) => {
@@ -806,6 +872,10 @@ class NXAEngine {
         if (state.view === 'self') return this.viewSelf(state);
         if (state.view === 'career') return this.viewCareer(state);
         if (state.view === 'course_admin') return this.viewCourseAdmin(state);
+        if (state.view && state.view.startsWith('course_editor_')) {
+            const courseId = state.view.replace('course_editor_', '');
+            return this.viewCourseEditor(state, courseId);
+        }
     }
 
     viewRegister(state, isEditing = false) {
@@ -1700,42 +1770,136 @@ class NXAEngine {
     viewCourseAdmin(state) {
         if (state.role !== 'admin' && state.user.email !== 'nxasupertalent@gmail.com') return this.viewHome(state);
         const courses = this.getCourses();
-
         return `
-            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto;">
+            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; padding-bottom: 120px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
                     <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px;">COURSE_CONTROL</h2>
-                    <button onclick="document.getElementById('addCourseForm').style.display='block'" style="background: #00ff6a; color: #000; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">+ NEW</button>
+                    <button onclick="document.getElementById('addCourseForm').style.display = document.getElementById('addCourseForm').style.display === 'none' ? 'block' : 'none'" style="background: #00ff6a; color: #000; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">+ NEW</button>
                 </div>
 
-                <div id="addCourseForm" style="display:none; background: var(--glass-bg); padding: 1.2rem; border-radius: 16px; border: 1px solid var(--accent-primary); margin-bottom: 1.5rem; position: relative;">
-                    <div style="display: grid; gap: 1rem;">
+                <div id="addCourseForm" style="display:none; background: var(--glass-bg); padding: 1.2rem; border-radius: 16px; border: 1px solid var(--accent-primary); margin-bottom: 1.5rem;">
+                    <p style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 1rem;">NEW COURSE MODULE</p>
+                    <div style="display: grid; gap: 0.8rem;">
                         <input id="new_c_title" type="text" placeholder="Course Title" style="height: 40px; font-size: 0.8rem;">
-                        <input id="new_c_domain" type="text" placeholder="Domain" style="height: 40px; font-size: 0.8rem;">
-                        <button type="button" onclick="window.NXACreateCourse()" class="btn-primary-lg" style="padding: 10px; font-size: 0.7rem;">AUTHORIZE</button>
+                        <input id="new_c_domain" type="text" placeholder="Domain (e.g. Web Engineering)" style="height: 40px; font-size: 0.8rem;">
+                        <textarea id="new_c_desc" placeholder="Course Description..." style="height: 80px; font-size: 0.8rem; padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; color: #fff; resize: none;"></textarea>
+                        <button type="button" onclick="window.NXACreateCourse()" class="btn-primary-lg" style="padding: 10px; font-size: 0.7rem;">AUTHORIZE COURSE</button>
                     </div>
                 </div>
 
-                <div style="display: grid; gap: 0.8rem; padding-bottom: 5rem;">
+                <div style="display: grid; gap: 1rem;">
+                    ${courses.length === 0 ? `<div style="text-align:center; color: var(--text-dim); padding: 3rem; border: 1px dashed var(--glass-border); border-radius: 16px;">No courses yet. Tap + NEW to create one.</div>` : ''}
                     ${courses.map(c => `
-                        <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 16px; border: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
-                            <div>
+                        <div style="background: var(--glass-bg); border-radius: 16px; border: 1px solid var(--glass-border); overflow: hidden;">
+                            <div style="padding: 1rem;">
                                 <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 800;">${c.domain}</span>
-                                <h3 style="margin: 2px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
+                                <h3 style="margin: 4px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
+                                ${c.desc ? `<p style="color: var(--text-dim); font-size: 0.7rem; margin: 4px 0 0; line-height: 1.4;">${c.desc}</p>` : ''}
+                                <div style="display: flex; gap: 8px; margin-top: 1rem; flex-wrap: wrap;">
+                                    <span style="background: rgba(0,242,255,0.08); color: var(--accent-primary); border: 1px solid rgba(0,242,255,0.2); padding: 3px 8px; border-radius: 4px; font-size: 0.5rem;">📹 ${(c.videos||[]).length} Videos</span>
+                                    <span style="background: rgba(0,255,106,0.08); color: #00ff6a; border: 1px solid rgba(0,255,106,0.2); padding: 3px 8px; border-radius: 4px; font-size: 0.5rem;">🔗 ${(c.refs||[]).length} Refs</span>
+                                    <span style="background: rgba(255,204,0,0.08); color: #ffcc00; border: 1px solid rgba(255,204,0,0.2); padding: 3px 8px; border-radius: 4px; font-size: 0.5rem;">📄 ${(c.docs||[]).length} Docs</span>
+                                </div>
                             </div>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <button onclick="window.NXAShowAssignModal('${c.id}')" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">ASSIGN</button>
-                                <button onclick="window.NXADeleteCourse('${c.id}')" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid rgba(255,69,69,0.2); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">DEL</button>
+                            <div style="display: flex; border-top: 1px solid var(--glass-border);">
+                                <button onclick="window.NXAOpenCourseEditor('${c.id}')" style="flex:1; padding: 8px; background: none; border: none; color: var(--accent-primary); font-size: 0.6rem; font-weight: 800; cursor: pointer; border-right: 1px solid var(--glass-border);">✏️ EDIT CONTENT</button>
+                                <button onclick="window.NXAShowAssignModal('${c.id}')" style="flex:1; padding: 8px; background: none; border: none; color: #fff; font-size: 0.6rem; font-weight: 800; cursor: pointer; border-right: 1px solid var(--glass-border);">👥 ASSIGN</button>
+                                <button onclick="window.NXADeleteCourse('${c.id}')" style="flex:1; padding: 8px; background: none; border: none; color: #ff4545; font-size: 0.6rem; font-weight: 800; cursor: pointer;">🗑 DEL</button>
                             </div>
                         </div>
                     `).join('')}
                 </div>
 
-                <div id="assignModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem;">
+                <div id="assignModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem;">
                     <div style="background: var(--bg-dark); width: 100%; border: 1px solid var(--accent-primary); border-radius: 20px; padding: 2rem; max-height: 80vh; overflow-y: auto;">
-                        <h3 style="margin: 0 0 1.5rem 0; font-size: 1.1rem; letter-spacing: 1px;">RECIPIENTS</h3>
+                        <h3 style="margin: 0 0 1.5rem 0; font-size: 1.1rem; letter-spacing: 1px;">ASSIGN TO STUDENTS</h3>
                         <div id="studentAssignmentList" style="display: grid; gap: 0.8rem;"></div>
                         <button onclick="document.getElementById('assignModal').style.display='none'" class="btn-primary-lg" style="margin-top: 2rem; width: 100%; padding: 12px; font-size: 0.8rem;">DONE</button>
+                    </div>
+                </div>
+            </section>
+        `;
+    }
+
+    viewCourseEditor(state, courseId) {
+        const courses = this.getCourses();
+        const course = courses.find(c => c.id === courseId);
+        if (!course) return this.viewCourseAdmin(state);
+        const refs = course.refs || [];
+        const videos = course.videos || [];
+        const docs = course.docs || [];
+        const sectionStyle = 'background: var(--glass-bg); padding: 1.2rem; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 1rem;';
+        const labelStyle = 'color: var(--accent-primary); font-size: 0.55rem; font-weight: 900; letter-spacing: 2px; display: block; margin-bottom: 0.8rem;';
+        const inputStyle = 'height: 40px; font-size: 0.75rem;';
+        const delBtnStyle = 'background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid rgba(255,69,69,0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.5rem; cursor: pointer;';
+
+        return `
+            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; padding-bottom: 120px;">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                    <button onclick="AppState.setView('course_admin')" style="background: none; border: none; color: var(--accent-primary); font-size: 1.2rem; cursor: pointer;">←</button>
+                    <div>
+                        <h2 style="font-family: var(--font-heading); font-size: 1.3rem; margin: 0; letter-spacing: 2px;">${course.title}</h2>
+                        <span style="color: var(--text-dim); font-size: 0.6rem;">${course.domain}</span>
+                    </div>
+                </div>
+
+                <!-- REFERENCES -->
+                <div style="${sectionStyle}">
+                    <span style="${labelStyle}">🔗 REFERENCES</span>
+                    ${refs.map((r, i) => `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; background: rgba(0,242,255,0.04); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(0,242,255,0.1);">
+                            <a href="${r.url}" target="_blank" style="color: var(--accent-primary); font-size: 0.7rem; font-weight: 700; text-decoration: none; flex:1;">${r.title}</a>
+                            <button onclick="window.NXADeleteResource('${courseId}','ref',${i})" style="${delBtnStyle}">✕</button>
+                        </div>
+                    `).join('')}
+                    <div style="display: grid; gap: 0.6rem; margin-top: ${refs.length ? '1rem' : '0'};">
+                        <input id="res_ref_title" type="text" placeholder="Reference Title" style="${inputStyle}">
+                        <input id="res_ref_url" type="url" placeholder="https://..." style="${inputStyle}">
+                        <button type="button" onclick="window.NXAAddResource('${courseId}','ref')" style="background: rgba(0,242,255,0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 8px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">+ ADD REFERENCE</button>
+                    </div>
+                </div>
+
+                <!-- YOUTUBE VIDEOS -->
+                <div style="${sectionStyle}">
+                    <span style="${labelStyle}">📹 YOUTUBE CLASSES</span>
+                    ${videos.map((v, i) => `
+                        <div style="margin-bottom: 1rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                                <span style="font-size: 0.75rem; font-weight: 700; color: #fff;">${v.title}</span>
+                                <button onclick="window.NXADeleteResource('${courseId}','yt',${i})" style="${delBtnStyle}">✕</button>
+                            </div>
+                            <div style="position:relative; padding-bottom: 56.25%; height: 0; border-radius: 10px; overflow: hidden;">
+                                <iframe src="https://www.youtube.com/embed/${v.ytId}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allowfullscreen></iframe>
+                            </div>
+                        </div>
+                    `).join('')}
+                    <div style="display: grid; gap: 0.6rem; margin-top: ${videos.length ? '1rem' : '0'};">
+                        <input id="res_yt_title" type="text" placeholder="Video Title" style="${inputStyle}">
+                        <input id="res_yt_url" type="url" placeholder="YouTube URL or Video ID" style="${inputStyle}">
+                        <button type="button" onclick="window.NXAAddResource('${courseId}','yt')" style="background: rgba(255,0,0,0.1); color: #ff4545; border: 1px solid rgba(255,0,0,0.3); padding: 8px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">+ ADD YOUTUBE VIDEO</button>
+                    </div>
+                </div>
+
+                <!-- DOCUMENTS -->
+                <div style="${sectionStyle}">
+                    <span style="${labelStyle}">📄 DOCUMENTS & FILES</span>
+                    ${docs.map((d, i) => `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; background: rgba(255,204,0,0.04); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,204,0,0.1);">
+                            <a href="${d.url}" target="_blank" download="${d.isFile ? d.title : undefined}" style="color: #ffcc00; font-size: 0.7rem; font-weight: 700; text-decoration: none;">📎 ${d.title}</a>
+                            <button onclick="window.NXADeleteResource('${courseId}','doc',${i})" style="${delBtnStyle}">✕</button>
+                        </div>
+                    `).join('')}
+                    <p style="color: var(--text-dim); font-size: 0.6rem; margin-bottom: 0.8rem;">Add a drive/cloud link (Google Drive, Dropbox) or upload a file directly (max 5MB).</p>
+                    <div style="display: grid; gap: 0.6rem;">
+                        <input id="res_doc_title" type="text" placeholder="Document Title" style="${inputStyle}">
+                        <input id="res_doc_url" type="url" placeholder="Google Drive / Dropbox / Cloud Link">
+                        <button type="button" onclick="window.NXAAddResource('${courseId}','doc')" style="background: rgba(255,204,0,0.1); color: #ffcc00; border: 1px solid rgba(255,204,0,0.3); padding: 8px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">+ ADD DOCUMENT LINK</button>
+                        <div style="border-top: 1px solid var(--glass-border); padding-top: 0.8rem; margin-top: 0.3rem;">
+                            <label style="color: var(--text-dim); font-size: 0.55rem; font-weight: 800; display: block; margin-bottom: 6px;">OR UPLOAD FROM DEVICE (PDF, Video, etc.)</label>
+                            <input id="res_file_title" type="text" placeholder="File Title" style="${inputStyle} margin-bottom: 6px;">
+                            <input id="res_file_input" type="file" accept=".pdf,.doc,.docx,.mp4,.ppt,.pptx" style="color: var(--text-dim); font-size: 0.65rem; margin-bottom: 8px; width:100%;">
+                            <button type="button" onclick="window.NXAAddResource('${courseId}','file')" style="background: rgba(0,255,106,0.1); color: #00ff6a; border: 1px solid rgba(0,255,106,0.3); padding: 8px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer; width: 100%;">⬆ UPLOAD FILE</button>
+                        </div>
                     </div>
                 </div>
             </section>
