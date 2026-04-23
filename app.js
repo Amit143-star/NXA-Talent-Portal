@@ -5,20 +5,23 @@
 
 // --- 0. FIREBASE CLOUD INITIALIZATION ---
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyBgx4Wd2SdpLhAknjo61NU1HWyZZkm0ivM",
+    authDomain: "nxa-talent.firebaseapp.com",
+    projectId: "nxa-talent",
+    storageBucket: "nxa-talent.firebasestorage.app",
+    messagingSenderId: "129338661158",
+    appId: "1:129338661158:web:0b2a3958668c22fd7189e7",
+    measurementId: "G-NJT1R8H4LG"
 };
 
 // Initialize Firebase
 if (typeof firebase !== 'undefined') {
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-    console.log("NXA_CLOUD: NEURAL_UPLINK_ESTABLISHED");
+    try {
+        firebase.initializeApp(firebaseConfig);
+        console.log("NXA_CLOUD: NEURAL_UPLINK_ESTABLISHED");
+    } catch (e) {
+        console.warn("NXA_CLOUD_ERROR: Initialization failed.", e);
+    }
 } else {
     console.warn("NXA_CLOUD_CRITICAL: FIREBASE_SDK_NOT_LOADED. Falling back to local manifest.");
 }
@@ -26,14 +29,17 @@ if (typeof firebase !== 'undefined') {
 // Helper for Firestore Sync
 const Cloud = {
     async set(col, id, data) {
+        if (typeof firebase === 'undefined') return;
         try { await firebase.firestore().collection(col).doc(id).set(data, { merge: true }); } 
         catch(e) { console.warn("CLOUD_WRITE_FAIL:", e); }
     },
     async get(col, id) {
+        if (typeof firebase === 'undefined') return null;
         try { const doc = await firebase.firestore().collection(col).doc(id).get(); return doc.exists ? doc.data() : null; }
         catch(e) { return null; }
     },
     async getAll(col) {
+        if (typeof firebase === 'undefined') return [];
         try { const snap = await firebase.firestore().collection(col).get(); return snap.docs.map(d => d.data()); }
         catch(e) { return []; }
     }
@@ -82,9 +88,22 @@ const AppState = {
         this.role = 'student';
         this.roleType = null;
         this.notify(); 
+    },
+    
+    // Cross-Tab Synchronization Uplink
+    syncExternal() {
+        const sync = () => {
+            this.init();
+            this.notify();
+        };
+        window.addEventListener('storage', (e) => {
+            if (!e.key || e.key.startsWith('nxa_')) sync();
+        });
+        window.addEventListener('nxa_internal_sync', sync);
     }
 };
 AppState.init();
+AppState.syncExternal();
 
 // --- 2. UI ORCHESTRATOR ---
 const DOM = {
@@ -94,6 +113,7 @@ const DOM = {
 
 class NXAEngine {
     constructor() {
+        window.NXA = this;
         this.init();
     }
 
@@ -145,6 +165,9 @@ class NXAEngine {
         // 2. CLOUD DISPATCH
         await Cloud.set('nxa_broadcasts', String(signal.id), signal);
 
+        // 3. FORCE LOCAL RE-RENDER & SYNC
+        window.dispatchEvent(new Event('nxa_internal_sync')); 
+        
         msgInput.value = '';
         alert('GLOBAL_SIGNAL_BROADCAST_SUCCESS');
     }
@@ -154,8 +177,19 @@ class NXAEngine {
         
         // SYNC IDENTITIES MATRIX
         firebase.firestore().collection('nxa_identities').onSnapshot(snap => {
-            const users = snap.docs.map(doc => doc.data());
-            localStorage.setItem('nxa_users', JSON.stringify(users));
+            const localUsers = JSON.parse(localStorage.getItem('nxa_users')) || [];
+            const cloudUsers = snap.docs.map(doc => doc.data());
+            
+            // Merge: Cloud takes priority for duplicates
+            const userMap = {};
+            localUsers.forEach(u => userMap[u.email] = u);
+            cloudUsers.forEach(u => userMap[u.email] = u);
+            
+            const merged = Object.values(userMap);
+            localStorage.setItem('nxa_users', JSON.stringify(merged));
+            
+            // Trigger local sync event for other tabs
+            window.dispatchEvent(new Event('nxa_internal_sync')); 
             if (AppState.view === 'student_mgmt') this.render(AppState);
         });
 
@@ -169,9 +203,12 @@ class NXAEngine {
 
         // SYNC MASTER PROFILES MATRIX (FULL DETAILS)
         firebase.firestore().collection('nxa_student_profiles').onSnapshot(snap => {
-            const profiles = {};
+            const localProfiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+            const profiles = { ...localProfiles };
             snap.forEach(doc => { profiles[doc.id] = doc.data(); });
             localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+            // Trigger local sync event for other tabs
+            window.dispatchEvent(new Event('nxa_internal_sync')); 
             if (AppState.view === 'student_mgmt') this.render(AppState);
         });
     }
@@ -358,15 +395,19 @@ class NXAEngine {
             
             // 1. Local Persistence (Failsafe)
             const users = JSON.parse(localStorage.getItem('nxa_users')) || [];
-            if (!users.find(u => u.email === email)) {
+            if (!users.find(u => u.email.toLowerCase() === email)) {
                 users.push(newUser);
                 localStorage.setItem('nxa_users', JSON.stringify(users));
             }
 
             // 2. CLOUD MANIFESTATION (Critical for Super Admin)
+            // CLOUD SYNC
             await Cloud.set('nxa_identities', email, newUser);
             
-            alert("IDENTITY_SYNCHRONIZED: Welcome to NXA Talent.");
+            // FORCE CROSS-TAB SYNC
+            window.dispatchEvent(new Event('nxa_internal_sync'));
+
+            alert("REGISTRATION_SUCCESS: Core ID Manifested. Proceed to Sign In.");
             AppState.setUser(newUser);
         } catch (err) {
             console.error('REG_ERROR:', err);
@@ -525,7 +566,8 @@ class NXAEngine {
 
     viewRegister(state, isEditing = false) {
         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-        const existing = profiles[state.user.email];
+        const emailKey = state.user.email.toLowerCase().trim();
+        const existing = profiles[emailKey];
 
         if (existing && existing.submittedAt && !isEditing) {
             return `<section class="section" style="display:flex; align-items:center; justify-content:center; height:80vh;">
@@ -624,7 +666,7 @@ class NXAEngine {
 
                         const data = {
                             fullname: document.getElementById('d_fullname').value,
-                            email: document.getElementById('d_email').value,
+                            email: document.getElementById('d_email').value.toLowerCase().trim(),
                             phone: document.getElementById('d_phone').value,
                             dob: document.getElementById('d_dob').value,
                             gender: document.getElementById('d_gender').value,
@@ -656,6 +698,10 @@ class NXAEngine {
 
                         if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
                         btn.innerText = 'DOSSIER_AUTHORIZED';
+                        
+                        // 3. FORCE CROSS-TAB SYNC
+                        window.dispatchEvent(new Event('nxa_internal_sync'));
+                        
                         setTimeout(() => AppState.setView('self'), 500);
                     };
                 }, 100);
@@ -670,7 +716,8 @@ class NXAEngine {
             { id: 'def2', type: 'FOUNDER', msg: 'Welcome to NXA Talent Industrial Portal.', time: 'NARENDRA' }
         ];
         // Combine and show latest first
-        const alerts = [...customAlerts].reverse().concat(defaultAlerts);
+        // customAlerts are already [Newest -> Oldest] because of unshift/Firestore sort
+        const alerts = [...customAlerts, ...defaultAlerts];
 
         return `
             <section class="section" style="padding: 1.5rem; max-height: 100vh; overflow-y: auto;">
@@ -695,78 +742,106 @@ class NXAEngine {
         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
         const students = Object.values(profiles);
         const allUsers = JSON.parse(localStorage.getItem('nxa_users')) || [];
-        const pending = allUsers.filter(u => !profiles[u.email]);
+        
+        const profileEmails = Object.keys(profiles).map(e => e.toLowerCase());
+        const pending = allUsers.filter(u => u.email && !profileEmails.includes(u.email.toLowerCase()));
 
         const isSuper = state.role === 'admin' && state.roleType === 'super';
         const isMax = state.role === 'admin' && state.roleType === 'max';
         const isCenter = state.role === 'admin' && state.roleType === 'center';
         
-        // Super Admin can handle ALL manifestations; Max/Center are subordinate authorized.
         const isAuthorizedToBroadcast = isSuper || isCenter || isMax;
-        const isAuthorizedToManage = isSuper || isMax;
+        const activeTab = state.adminTab || 'dossiers';
 
         return `
-            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto;">
-                <h2 style="font-family: var(--font-heading); font-size: 2rem; margin-bottom: 0.5rem;">ADMIN_COMMAND_CENTER</h2>
-                <div style="display: flex; gap: 2rem; margin-bottom: 3rem;">
-                    <div style="background: var(--glass-bg); padding: 1.5rem 2rem; border-radius: 12px; border: 1px solid var(--glass-border);">
-                        <span style="font-size: 0.6rem; color: var(--text-dim);">ACTIVE_DOSSIERS</span>
-                        <div style="font-size: 2rem; font-weight: 800; color: var(--accent-primary);">${students.length}</div>
-                    </div>
+            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; background: #000;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2 style="font-family: var(--font-heading); font-size: 1.5rem; margin:0; letter-spacing: 1px; color: #fff;">COMMAND_CENTER_v4</h2>
+                    <button onclick="window.location.reload()" style="background: rgba(255,255,255,0.05); color: var(--text-dim); border: 1px solid var(--glass-border); padding: 8px 15px; border-radius: 8px; font-size: 0.55rem; font-weight: 800; cursor: pointer;">
+                        FORCE_SYNC
+                    </button>
                 </div>
 
-                <!-- BROADCAST COMMAND NODE (AUTHORIZED ROLES ONLY) -->
-                ${isAuthorizedToBroadcast ? `
-                <div style="background: rgba(0, 229, 255, 0.03); padding: 2.5rem; border-radius: 24px; border: 1px solid var(--accent-primary); margin-bottom: 4rem; position: relative; overflow: hidden;">
-                    <div style="position: absolute; top:0; right:0; padding: 10px; background: var(--accent-primary); color:#000; font-size: 0.5rem; font-weight: 900; letter-spacing: 2px;">ANYONE_CAN_HEAR_THIS</div>
-                    <h3 style="margin: 0 0 1.5rem 0; font-size: 1rem; letter-spacing: 2px; font-family: var(--font-heading);">MANIFEST_GLOBAL_SIGNAL</h3>
-                    <div style="display: grid; gap: 1.2rem;">
-                        <input id="broadcastMsg" type="text" placeholder="Type global industrial alert..." style="width: 100%; background: #000; border: 1px solid var(--glass-border); padding: 15px; border-radius: 12px; color: #fff; font-size: 0.85rem; outline: none; transition: 0.3s;">
-                        <div style="display: flex; gap: 10px;">
-                            <select id="broadcastType" style="background: #000; border: 1px solid var(--glass-border); color: #fff; padding: 10px 20px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">
-                                <option value="SIGNAL">SIGNAL</option>
-                                <option value="ALERT">ALERT</option>
-                                <option value="FOUNDER">FOUNDER</option>
-                                <option value="SYSTEM">SYSTEM</option>
-                            </select>
-                            <button id="sendBroadcast" style="flex: 1; background: var(--accent-primary); color: #000; border: none; padding: 12px; border-radius: 12px; font-weight: 900; font-size: 0.75rem; cursor: pointer; transition: 0.3s;">DISPATCH_SIGNAL</button>
-                        </div>
-                    </div>
+                <!-- DASHBOARD TABS -->
+                <div style="display: flex; gap: 10px; margin-bottom: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
+                    <button onclick="AppState.adminTab='dossiers'; NXA.render(AppState)" style="background: ${activeTab === 'dossiers' ? 'var(--accent-primary)' : 'transparent'}; color: ${activeTab === 'dossiers' ? '#000' : '#fff'}; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">DOSSIERS (${students.length})</button>
+                    <button onclick="AppState.adminTab='pending'; NXA.render(AppState)" style="background: ${activeTab === 'pending' ? '#ffcc00' : 'transparent'}; color: ${activeTab === 'pending' ? '#000' : '#fff'}; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">PENDING (${pending.length})</button>
+                    <button onclick="AppState.adminTab='broadcast'; NXA.render(AppState)" style="background: ${activeTab === 'broadcast' ? '#fff' : 'transparent'}; color: ${activeTab === 'broadcast' ? '#000' : '#fff'}; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">BROADCAST</button>
                 </div>
+
+                ${activeTab === 'dossiers' ? `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem;">
+                        ${students.length === 0 ? `
+                            <div style="grid-column:1/-1; padding: 5rem; text-align: center; color: var(--text-dim); border: 1px dashed var(--glass-border); border-radius: 20px;">ZERO_ACTIVE_DOSSIERS_IN_MATRIX</div>
+                        ` : students.map(s => `
+                            <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 24px; padding: 1.8rem; position: relative; animation: cardManifest 0.4s ease-out;">
+                                <div style="position: absolute; left: 0; top: 2rem; bottom: 2rem; width: 4px; background: var(--accent-primary); border-radius: 0 4px 4px 0;"></div>
+                                
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                                    <div>
+                                        <h3 style="font-size: 1.2rem; color: #fff; margin:0; font-family: var(--font-heading);">${s.fullname}</h3>
+                                        <span style="color: var(--accent-primary); font-size: 0.6rem; font-weight: 900; letter-spacing: 1px;">${s.email.toUpperCase()}</span>
+                                    </div>
+                                    <div style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); padding: 4px 8px; border-radius: 4px; font-size: 0.5rem; font-weight: 900;">CGPA: ${s.cgpa || 'N/A'}</div>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.65rem; color: var(--text-dim);">
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">IDENTITY_USN</span><span style="color: #fff;">${s.usn || '-'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">BRANCH</span><span style="color: #fff;">${s.branch || '-'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">SEM</span><span style="color: #fff;">${s.sem || '-'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">COLLEGE</span><span style="color: #fff;">${s.college || '-'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">PHONE</span><span style="color: #fff;">${s.phone || '-'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">PASS_YEAR</span><span style="color: #fff;">${s.passingyear || '-'}</span></div>
+                                </div>
+
+                                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; gap: 10px;">
+                                    <button onclick="alert('FULL_DOSSIER_RECORDS: \\n\\n Skills: ${s.skills || 'None'} \\n LinkedIn: ${s.linkedin || 'N/A'} \\n GitHub: ${s.github || 'N/A'}')" style="flex: 1; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 8px; border-radius: 8px; font-size: 0.55rem; font-weight: 800; cursor: pointer;">VIEW_FULL_MANIFEST</button>
+                                    <button class="btn-delete" data-email="${s.email}" style="background: rgba(255, 69, 69, 0.1); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.2); padding: 8px; border-radius: 8px; font-size: 0.55rem; font-weight: 800; cursor: pointer;">PURGE</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
                 ` : ''}
 
-                <!-- SECTION 1: FULL DOSSIERS -->
-                <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; font-size: 0.9rem;">
-                    <span style="background: var(--accent-primary); width: 8px; height: 8px; border-radius: 50%;"></span>
-                    SYNCHRONIZED_STUDENT_DOSSIERS
-                </h3>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
-                    ${students.length === 0 ? `
-                        <div style="grid-column:1/-1; background: var(--glass-bg); border: 1px dashed var(--glass-border); padding: 3rem; border-radius: 20px; text-align: center; color: var(--text-dim);">
-                            ZERO_DOSSIERS_FOUND_IN_MATRIX
-                        </div>
-                    ` : students.map(s => `
-                        <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 20px; padding: 1.5rem; position: relative; animation: cardManifest 0.3s ease-out forwards;">
-                            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent-primary);"></div>
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                ${activeTab === 'pending' ? `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+                        ${pending.length === 0 ? `
+                            <div style="grid-column:1/-1; padding: 5rem; text-align: center; color: var(--text-dim); border: 1px dashed var(--glass-border); border-radius: 20px;">ZERO_PENDING_REGISTRATIONS</div>
+                        ` : pending.map(u => `
+                            <div style="background: rgba(255, 204, 0, 0.03); border: 1px solid rgba(255, 204, 0, 0.1); border-radius: 16px; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <h3 style="font-size: 1rem; color: #fff; margin:0; font-family: var(--font-heading);">${s.fullname || 'UNKNOWN_IDENTITY'}</h3>
-                                    <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 900;">${s.email}</span>
+                                    <div style="font-size: 0.85rem; font-weight: 800; color: #fff;">${u.name}</div>
+                                    <div style="font-size: 0.55rem; color: #ffcc00; letter-spacing: 1px;">${u.email}</div>
                                 </div>
+                                <span style="font-size: 0.45rem; font-weight: 900; background: rgba(255, 204, 0, 0.2); padding: 4px 8px; border-radius: 6px; color: #ffcc00;">ACCOUNT_ONLY</span>
                             </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
-                                <div>
-                                    <div style="font-size: 0.5rem; color: var(--text-dim);">USN</div><div style="font-size: 0.8rem; color: #fff;">${s.usn || '-'}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size: 0.5rem; color: var(--text-dim);">GPA</div><div style="font-size: 0.8rem; color: #00ff6a;">${s.cgpa || '-'}</div>
-                                </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+
+                ${activeTab === 'broadcast' ? `
+                    <div style="max-width: 600px; margin: 0 auto; background: rgba(0, 229, 255, 0.03); padding: 3rem; border-radius: 32px; border: 1px solid var(--accent-primary);">
+                        <h3 style="margin: 0 0 2rem 0; font-size: 1.2rem; font-family: var(--font-heading); color: var(--accent-primary);">GLOBAL_SIGNAL_BROADCAST</h3>
+                        <div style="display: grid; gap: 1.5rem;">
+                            <div class="input-block">
+                                <label style="font-size: 0.5rem; color: var(--accent-primary); margin-bottom: 5px; display: block;">SIGNAL_MESSAGE</label>
+                                <textarea id="broadcastMsg" placeholder="Type industrial alert message..." style="width: 100%; background: #000; border: 1px solid var(--glass-border); padding: 15px; border-radius: 12px; color: #fff; font-size: 0.85rem; outline: none; min-height: 100px;"></textarea>
                             </div>
-                            <button class="btn-delete" data-email="${s.email}" style="margin-top: 1.5rem; width: 100%; background: rgba(255, 69, 69, 0.05); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.1); padding: 10px; border-radius: 10px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">TERMINATE_DOSSIER</button>
+                            <div style="display: flex; gap: 15px;">
+                                <div style="flex: 1;">
+                                    <label style="font-size: 0.5rem; color: var(--accent-primary); margin-bottom: 5px; display: block;">TYPE</label>
+                                    <select id="broadcastType" style="width: 100%; background: #000; border: 1px solid var(--glass-border); color: #fff; padding: 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">
+                                        <option value="SIGNAL">SIGNAL</option>
+                                        <option value="ALERT">ALERT</option>
+                                        <option value="FOUNDER">FOUNDER</option>
+                                        <option value="SYSTEM">SYSTEM</option>
+                                    </select>
+                                </div>
+                                <button id="sendBroadcast" style="align-self: flex-end; background: var(--accent-primary); color: #000; border: none; padding: 15px 30px; border-radius: 12px; font-weight: 900; font-size: 0.75rem; cursor: pointer;">DISPATCH</button>
+                            </div>
                         </div>
-                    `).join('')}
-                </div>
+                    </div>
+                ` : ''}
             </section>
         `;
     }
@@ -873,14 +948,18 @@ class NXAEngine {
                     // QR Generation for Students
                     const qrEl = document.getElementById('qrcode');
                     if(qrEl) {
-                        new QRCode(qrEl, {
-                            text: "ATT_${state.user.email}_NXA",
-                            width: 180,
-                            height: 180,
-                            colorDark : "#000000",
-                            colorLight : "#ffffff",
-                            correctLevel : QRCode.CorrectLevel.H
-                        });
+                        if (typeof QRCode !== 'undefined') {
+                            new QRCode(qrEl, {
+                                text: "ATT_${state.user.email}_NXA",
+                                width: 180,
+                                height: 180,
+                                colorDark : "#000000",
+                                colorLight : "#ffffff",
+                                correctLevel : QRCode.CorrectLevel.H
+                            });
+                        } else {
+                            qrEl.innerHTML = '<p style="color:var(--text-dim);font-size:0.6rem;padding:20px;border:1px dashed var(--glass-border);border-radius:12px;">QR_ENGINE_OFFLINE<br><span style="font-size:0.4rem;">Script load failed or blocked.</span></p>';
+                        }
                     }
 
                     // Manual Punch Search & Logic for Admin
@@ -945,6 +1024,10 @@ class NXAEngine {
                     if(toggleScanner) toggleScanner.onclick = () => {
                         const ui = document.getElementById('adminScannerUI');
                         if(ui.style.display === 'none') {
+                            if (typeof Html5Qrcode === 'undefined') {
+                                alert('SCANNER_ENGINE_OFFLINE: html5-qrcode library not loaded.');
+                                return;
+                            }
                             ui.style.display = 'block';
                             toggleScanner.innerText = 'TERMINATE_SCANNER';
                             html5QrCode = new Html5Qrcode("scanner-container");
@@ -958,7 +1041,7 @@ class NXAEngine {
                                         res.innerText = "AUTHENTICATED: " + email;
                                         // Update that student's record
                                         const dateStr = new Date().toISOString().split('T')[0];
-                                        const attKey = \`nxa_att_\${email}\`;
+                                        const attKey = 'nxa_att_' + email;
                                         const attRecord = JSON.parse(localStorage.getItem(attKey)) || {};
                                         attRecord[dateStr] = true;
                                         localStorage.setItem(attKey, JSON.stringify(attRecord));
@@ -966,9 +1049,14 @@ class NXAEngine {
                                         setTimeout(() => { res.innerText = ""; }, 2000);
                                     }
                                 }
-                            );
+                            ).catch(err => {
+                                console.error("SCAN_START_FAIL:", err);
+                                alert("SCANNER_ERROR: " + err);
+                            });
                         } else {
-                            if(html5QrCode) html5QrCode.stop();
+                            if(html5QrCode) {
+                                html5QrCode.stop().catch(e => console.warn("SCAN_STOP_FAIL:", e));
+                            }
                             ui.style.display = 'none';
                             toggleScanner.innerText = 'ACTIVATE_SCANNER';
                         }
@@ -1160,21 +1248,6 @@ class NXAEngine {
         `;
     }
 
-    viewLeetcode(state) {
-        return `
-            <section class="section">
-                <h2 style="font-family: var(--font-heading); font-size: 2.5rem; margin-bottom: 3rem;">LEET_CODE_SYNC</h2>
-                <div style="background: var(--bg-darker); padding: 3rem; border-radius: 20px; border: 1px solid var(--glass-border); text-align: center;">
-                    <p style="font-size: 1.5rem; margin-bottom: 2rem;">Global Rank: #1,248</p>
-                    <div style="display: flex; justify-content: center; gap: 3rem;">
-                        <div><span style="display:block; font-size: 2rem; color: #00ff6a;">424</span>Easy</div>
-                        <div><span style="display:block; font-size: 2rem; color: #ffcc00;">128</span>Medium</div>
-                        <div><span style="display:block; font-size: 2rem; color: #ff4545;">15</span>Hard</div>
-                    </div>
-                </div>
-            </section>
-        `;
-    }
 
     viewLive(state) {
         const isSuper = state.role === 'admin' && state.roleType === 'super';
@@ -1255,7 +1328,7 @@ class NXAEngine {
 
     viewSelf(state) {
         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-        const pd = profiles[state.user.email];
+        const pd = profiles[state.user.email.toLowerCase().trim()];
 
         return `
             <section class="section" style="padding: 1.5rem; max-height: 100vh; overflow: hidden;">
@@ -1268,7 +1341,7 @@ class NXAEngine {
                             <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE</span>
                         </div>
                     </div>
-                    <button onclick="DOM.root.innerHTML = NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
+                    <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
                         RE-SYNC
                     </button>
                 </div>
@@ -1286,9 +1359,13 @@ class NXAEngine {
 
                 <!-- GRID DATA (Condensed) -->
                 ${!pd ? `
-                    <div style="background: rgba(255, 204, 0, 0.05); padding: 2rem; border-radius: 18px; text-align: center; border: 1px dashed rgba(255, 204, 0, 0.2);">
-                        <p style="color: #ffcc00; font-size: 0.7rem; font-weight: 800; letter-spacing: 1px;">DOSSIER_PENDING</p>
-                        <button onclick="AppState.setView('register')" style="margin-top: 10px; background: none; border: 1px solid #fff; color: #fff; padding: 5px 15px; border-radius: 4px; font-size: 0.6rem;">REGISTER_CORE</button>
+                    <div style="background: rgba(255, 204, 0, 0.05); padding: 3rem 2rem; border-radius: 24px; text-align: center; border: 1px dashed rgba(255, 204, 0, 0.3); margin-top: 1rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1.5rem; filter: grayscale(1); opacity: 0.5;">📄</div>
+                        <h3 style="color: #fff; font-family: var(--font-heading); font-size: 1.2rem; margin-bottom: 0.5rem;">IDENTITY_MANIFEST_PENDING</h3>
+                        <p style="color: var(--text-dim); font-size: 0.75rem; max-width: 250px; margin: 0 auto 2rem; line-height: 1.6;">Your industrial student dossier has not been synchronized with the core matrix.</p>
+                        <button onclick="AppState.setView('register')" class="btn-primary" style="padding: 12px 30px; font-size: 0.7rem; border-radius: 12px;">
+                            INITIALIZE_REGISTRATION
+                        </button>
                     </div>
                 ` : `
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
@@ -1329,7 +1406,7 @@ class NXAEngine {
     viewHome(state) {
         const liveData = JSON.parse(localStorage.getItem('nxa_live_broadcast')) || { active: false };
         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-        const pd = profiles[state.user.email] || {};
+        const pd = profiles[state.user.email.toLowerCase().trim()] || {};
         const myCourseIds = pd.assigned_courses || [];
 
         const thoughts = [
@@ -1464,8 +1541,8 @@ class NXAEngine {
                                 <h3 style="margin: 2px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
                             </div>
                             <div style="display: flex; gap: 0.5rem;">
-                                <button onclick="NXA.showAssignModal('${c.id}')" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">ASSIGN</button>
-                                <button onclick="NXA.deleteCourse('${c.id}')" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid rgba(255,69,69,0.2); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">DEL</button>
+                                <button onclick="window.NXA.showAssignModal('${c.id}')" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">ASSIGN</button>
+                                <button onclick="window.NXA.deleteCourse('${c.id}')" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid rgba(255,69,69,0.2); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">DEL</button>
                             </div>
                         </div>
                     `).join('')}
@@ -1486,19 +1563,19 @@ class NXAEngine {
                         const title = document.getElementById('new_c_title').value;
                         const domain = document.getElementById('new_c_domain').value;
                         if(!title || !domain) return;
-                        const courses = NXA.getCourses();
+                        const courses = window.NXA.getCourses();
                         courses.push({ id: 'c' + Date.now(), title, domain });
-                        NXA.saveCourses(courses);
+                        window.NXA.saveCourses(courses);
                         AppState.setView('course_admin'); 
                     };
-                    window.NXA = NXA;
-                    NXA.deleteCourse = (id) => {
+                    window.NXA = this;
+                    window.NXA.deleteCourse = (id) => {
                         if(!confirm('TERMINATE?')) return;
-                        const filtered = NXA.getCourses().filter(c => c.id !== id);
-                        NXA.saveCourses(filtered);
+                        const filtered = window.NXA.getCourses().filter(c => c.id !== id);
+                        window.NXA.saveCourses(filtered);
                         AppState.setView('course_admin');
                     };
-                    NXA.showAssignModal = (courseId) => {
+                    window.NXA.showAssignModal = (courseId) => {
                         const modal = document.getElementById('assignModal');
                         const list = document.getElementById('studentAssignmentList');
                         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
@@ -1509,14 +1586,14 @@ class NXAEngine {
                             return \`
                                 <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 0.8rem; border-radius: 10px; border: 1px solid var(--glass-border);">
                                     <div style="font-size: 0.8rem; font-weight: 800;">\${s.fullname}</div>
-                                    <button onclick="NXA.toggleAssignment('\${s.email}', '\${courseId}', this)" style="background: \${isAssigned ? '#00ff6a' : 'transparent'}; color: \${isAssigned ? '#000' : '#fff'}; border: 1px solid \${isAssigned ? '#00ff6a' : 'var(--glass-border)'}; padding: 4px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">
+                                    <button onclick="window.NXA.toggleAssignment('\${s.email}', '\${courseId}', this)" style="background: \${isAssigned ? '#00ff6a' : 'transparent'}; color: \${isAssigned ? '#000' : '#fff'}; border: 1px solid \${isAssigned ? '#00ff6a' : 'var(--glass-border)'}; padding: 4px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">
                                         \${isAssigned ? 'YES' : 'ADD'}
                                     </button>
                                 </div>
                             \`;
                         }).join('');
                     };
-                    NXA.toggleAssignment = (email, courseId, btn) => {
+                    window.NXA.toggleAssignment = (email, courseId, btn) => {
                         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
                         const s = profiles[email];
                         if(!s) return;
@@ -1599,30 +1676,6 @@ class NXAEngine {
         `;
     }
 
-    viewNotifications(state) {
-        const alerts = [
-            { id: 1, type: 'SYSTEM', msg: 'Core AI Matrix Updated to v1.2', time: '2m ago' },
-            { id: 2, type: 'RESIDENCY', msg: 'Google AI Applications now open.', time: '1h ago' },
-            { id: 3, type: 'ALERT', msg: 'Attendance verified for Core_AI_01.', time: '5h ago' }
-        ];
-
-        return `
-            <section class="section">
-                <h2 style="font-family: var(--font-heading); font-size: 2.5rem; margin-bottom: 3rem;">NOTIFICATION_FEED</h2>
-                <div style="display: grid; gap: 1.5rem; max-width: 700px;">
-                    ${alerts.map(a => `
-                        <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--glass-border); position: relative; overflow: hidden;">
-                            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${a.type === 'ALERT' ? '#ff4545' : 'var(--accent-primary)'};"></div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                <span style="font-size: 0.7rem; font-weight: 800; letter-spacing: 1px; color: var(--text-dim);">${a.type}</span>
-                                <span style="font-size: 0.6rem; color: var(--text-dim);">${a.time}</span>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </section>
-        `;
-    }
 
     viewLeetcode(state) {
         const solved = JSON.parse(localStorage.getItem('nxa_leetcode_solved')) || [];
