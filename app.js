@@ -1412,9 +1412,10 @@ class NXAEngine {
                             <div class="input-block"><label style="font-size: 0.5rem;">SESSION_TOPIC</label><input id="live_topic" type="text" value="${liveData.topic || ''}" style="height: 45px; padding: 0 15px;" placeholder="Topic"></div>
                             <div class="input-block"><label style="font-size: 0.5rem;">MEET_LINK</label><input id="live_link" type="text" value="${liveData.link || ''}" style="height: 45px; padding: 0 15px;" placeholder="Link"></div>
                         </div>
-                        <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                            <button type="button" onclick="window.NXAStartLive()" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.7rem; background: #00ff6a; color: #000; font-weight: 900;">${liveData.active ? 'UPDATE' : 'START_LIVE'}</button>
-                            ${liveData.active ? `<button type="button" onclick="window.NXAStopLive()" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.7rem; background: #ff4545; color: #fff; border: none; font-weight: 900;">TERMINATE</button>` : ''}
+                        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
+                            <button type="button" onclick="window.NXAStartLive()" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.65rem; background: #00ff6a; color: #000; font-weight: 900;">${liveData.active ? 'UPDATE' : 'START_LIVE'}</button>
+                            ${liveData.active ? `<button type="button" onclick="window.open('${liveData.link}', '_blank')" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.65rem; background: #00d2ff; color: #000; border: none; font-weight: 900;">JOIN</button>` : ''}
+                            ${liveData.active ? `<button type="button" onclick="window.NXAStopLive()" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.65rem; background: #ff4545; color: #fff; border: none; font-weight: 900;">TERMINATE</button>` : ''}
                         </div>
                     </div>
                 ` : ''}
