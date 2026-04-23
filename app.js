@@ -66,7 +66,21 @@ const AppState = {
                 const match = document.cookie.match(new RegExp('(^| )nxa_active_session=([^;]+)'));
                 if (match) savedUser = decodeURIComponent(match[2]);
             }
-            if (savedUser && savedUser !== 'undefined' && savedUser !== 'null') this.user = JSON.parse(savedUser);
+            if (savedUser && savedUser !== 'undefined' && savedUser !== 'null') {
+                this.user = JSON.parse(savedUser);
+            }
+
+            // EXTREME FAILSAFE: If no session exists but an account was registered locally, auto-login!
+            if (!this.user) {
+                const users = JSON.parse(localStorage.getItem('nxa_users')) || [];
+                if (users.length > 0) {
+                    this.user = users[users.length - 1];
+                    this.role = this.user.role || 'student';
+                    // Re-save session
+                    localStorage.setItem('nxa_active_session', JSON.stringify(this.user));
+                    document.cookie = `nxa_active_session=${encodeURIComponent(JSON.stringify(this.user))}; max-age=31536000; path=/`;
+                }
+            }
             
             let savedRole = localStorage.getItem('nxa_active_role');
             if (!savedRole) {
