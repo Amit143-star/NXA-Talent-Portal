@@ -2134,25 +2134,79 @@ class NXAEngine {
 document.addEventListener('DOMContentLoaded', () => {
     new NXAEngine();
 
-    // ── GESTURE: Swipe Right from Left Edge = Go Back ──
+    // ── GESTURE: Full Touch Navigation System ──
     let touchStartX = 0;
     let touchStartY = 0;
+    let touchStartTime = 0;
+
+    // ── Tab order for swipe navigation ──
+    const studentTabs = ['home', 'live', 'courses', 'self'];
+    const adminTabs   = ['home', 'student_mgmt', 'live', 'courses', 'notifications'];
+
+    function getTabOrder() {
+        const role = AppState.role;
+        const rt   = AppState.roleType;
+        if (role !== 'admin') return studentTabs;
+        if (rt === 'max')    return ['home', 'live', 'courses'];
+        if (rt === 'center') return ['home', 'student_mgmt', 'notifications'];
+        return adminTabs; // super or default admin
+    }
+
+    function slideViewport(direction) {
+        const vp = document.getElementById('app-viewport');
+        if (!vp) return;
+        vp.style.transition = 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s';
+        vp.style.transform  = direction === 'left' ? 'translateX(-40px)' : 'translateX(40px)';
+        vp.style.opacity    = '0';
+        setTimeout(() => {
+            vp.style.transition = 'none';
+            vp.style.transform  = direction === 'left' ? 'translateX(40px)' : 'translateX(-40px)';
+            setTimeout(() => {
+                vp.style.transition = 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s';
+                vp.style.transform  = 'translateX(0)';
+                vp.style.opacity    = '1';
+            }, 20);
+        }, 280);
+    }
+
     document.addEventListener('touchstart', (e) => {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
+        touchStartX    = e.touches[0].clientX;
+        touchStartY    = e.touches[0].clientY;
+        touchStartTime = Date.now();
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-        const dx = e.changedTouches[0].clientX - touchStartX;
-        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
-        // Swipe right from the left 60px zone, at least 80px horizontal, and not mostly vertical
-        if (touchStartX < 60 && dx > 80 && dy < 80) {
+        const dx       = e.changedTouches[0].clientX - touchStartX;
+        const dy       = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        const dt       = Date.now() - touchStartTime;
+        const isHoriz  = Math.abs(dx) > dy && Math.abs(dx) > 60 && dt < 400;
+
+        if (!isHoriz) return;
+
+        // ── Left-edge swipe RIGHT = Go Back ──
+        if (touchStartX < 60 && dx > 0) {
             AppState.goBack();
+            return;
+        }
+
+        // ── Full swipe LEFT = next tab, RIGHT = previous tab ──
+        const tabs    = getTabOrder();
+        const current = AppState.view;
+        const idx     = tabs.indexOf(current);
+        if (idx === -1) return; // not a main tab, skip
+
+        if (dx < 0 && idx < tabs.length - 1) {
+            // Swipe left → next tab
+            slideViewport('left');
+            setTimeout(() => AppState.setView(tabs[idx + 1]), 0);
+        } else if (dx > 0 && idx > 0) {
+            // Swipe right → previous tab
+            slideViewport('right');
+            setTimeout(() => AppState.setView(tabs[idx - 1]), 0);
         }
     }, { passive: true });
 
     // ── Android Hardware Back Button ──
-    window.addEventListener('popstate', () => { AppState.goBack(); });
     history.pushState(null, '', window.location.href);
     window.addEventListener('popstate', () => {
         history.pushState(null, '', window.location.href);
