@@ -114,7 +114,21 @@ const AppState = {
             document.cookie = `nxa_active_role=${encodeURIComponent(this.role || 'student')}; max-age=31536000; path=/`;
         } catch (e) { console.warn("NXA_STORAGE: Local memory full/blocked."); }
     },
-    setView(view) { this.view = view; this.notify(); },
+    setView(view) { 
+        if (this.view && this.view !== view) {
+            if (!this._history) this._history = [];
+            this._history.push(this.view);
+            if (this._history.length > 20) this._history.shift();
+        }
+        this.view = view; 
+        this.notify(); 
+    },
+    goBack() {
+        if (!this._history || this._history.length === 0) return;
+        const prev = this._history.pop();
+        this.view = prev;
+        this.notify();
+    },
     logout() { 
         this.user = null; 
         this.role = 'student';
@@ -2119,4 +2133,29 @@ class NXAEngine {
 // Boot the Matrix
 document.addEventListener('DOMContentLoaded', () => {
     new NXAEngine();
+
+    // ── GESTURE: Swipe Right from Left Edge = Go Back ──
+    let touchStartX = 0;
+    let touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        // Swipe right from the left 60px zone, at least 80px horizontal, and not mostly vertical
+        if (touchStartX < 60 && dx > 80 && dy < 80) {
+            AppState.goBack();
+        }
+    }, { passive: true });
+
+    // ── Android Hardware Back Button ──
+    window.addEventListener('popstate', () => { AppState.goBack(); });
+    history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', () => {
+        history.pushState(null, '', window.location.href);
+        AppState.goBack();
+    });
 });
