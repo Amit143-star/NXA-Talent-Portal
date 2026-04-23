@@ -700,6 +700,10 @@ class NXAEngine {
                         <span style="font-size: 1.1rem;">📡</span>
                         <span style="font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">LIVE</span>
                     </div>
+                    <div class="bottom-nav-item ${state.view === 'courses' ? 'active' : ''}" data-view="courses" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">
+                        <span style="font-size: 1.1rem;">📚</span>
+                        <span style="font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">COURSES</span>
+                    </div>
                     <div class="bottom-nav-item ${state.view === 'notifications' ? 'active' : ''}" data-view="notifications" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">
                         <span style="font-size: 1.1rem;">🔔</span>
                         <span style="font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">SIGNALS</span>
