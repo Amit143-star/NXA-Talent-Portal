@@ -648,9 +648,11 @@ class NXAEngine {
                         </div>
                     </div>
 
-                    <button type="submit" id="dossierSubmit" class="btn-primary" style="width: 100%; height: 50px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2rem; box-shadow: 0 10px 20px rgba(0,242,255,0.2);">
-                        AUTHORIZE_IDENTITY_MANIFEST
-                    </button>
+                    <div style="padding-bottom: 80px;">
+                        <button type="submit" id="dossierSubmit" class="btn-primary" style="width: 100%; height: 50px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2rem; box-shadow: 0 10px 20px rgba(0,242,255,0.2);">
+                            AUTHORIZE_IDENTITY_MANIFEST
+                        </button>
+                    </div>
                 </form>
             </section>
             <script>
@@ -794,9 +796,16 @@ class NXAEngine {
                                     <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">PASS_YEAR</span><span style="color: #fff;">${s.passingyear || '-'}</span></div>
                                 </div>
 
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.65rem; color: var(--text-dim); margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed rgba(255,255,255,0.1);">
+                                    <div style="grid-column: span 2;"><span style="display: block; font-size: 0.45rem; opacity: 0.5;">SKILL_MATRIX</span><span style="color: var(--accent-primary); font-weight: 800;">${s.skills || 'NO_SKILLS_MANIFESTED'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">LINKEDIN</span><span style="color: #fff; word-break: break-all;">${s.linkedin || '-'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">GITHUB</span><span style="color: #fff; word-break: break-all;">${s.github || '-'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">PARENT_IDENTITY</span><span style="color: #fff;">${s.pname || '-'}</span></div>
+                                    <div><span style="display: block; font-size: 0.45rem; opacity: 0.5;">PARENT_PHONE</span><span style="color: #fff;">${s.pphone || '-'}</span></div>
+                                </div>
+
                                 <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; gap: 10px;">
-                                    <button onclick="alert('FULL_DOSSIER_RECORDS: \\n\\n Skills: ${s.skills || 'None'} \\n LinkedIn: ${s.linkedin || 'N/A'} \\n GitHub: ${s.github || 'N/A'}')" style="flex: 1; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 8px; border-radius: 8px; font-size: 0.55rem; font-weight: 800; cursor: pointer;">VIEW_FULL_MANIFEST</button>
-                                    <button class="btn-delete" data-email="${s.email}" style="background: rgba(255, 69, 69, 0.1); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.2); padding: 8px; border-radius: 8px; font-size: 0.55rem; font-weight: 800; cursor: pointer;">PURGE</button>
+                                    <button class="btn-delete" data-email="${s.email}" style="width: 100%; background: rgba(255, 69, 69, 0.1); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.2); padding: 10px; border-radius: 8px; font-size: 0.6rem; font-weight: 900; letter-spacing: 1px; cursor: pointer;">PURGE_DOSSIER</button>
                                 </div>
                             </div>
                         `).join('')}
