@@ -803,8 +803,9 @@ class NXAEngine {
                 <div class="sidebar-item ${state.view === 'student_mgmt' ? 'active' : ''}" data-view="student_mgmt"><span class="icon">⚙️</span> Student Dossiers</div>
                 ` : ''}
 
-                <div style="display: none !important; margin-top: auto; padding: 20px;">
-                    <button onclick="AppState.logout()" style="width: 100%; padding: 10px; background: rgba(255,69,69,0.1); border: 1px solid #ff4545; color: #ff4545; border-radius: 8px; cursor: pointer;">LOGOUT</button>
+                <div style="margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--glass-border);">
+                    <div style="font-size: 0.55rem; color: var(--text-dim); margin-bottom: 8px; letter-spacing: 1px;">${state.user.email}</div>
+                    <button onclick="if(confirm('Are you sure you want to logout?')) AppState.logout()" style="width: 100%; padding: 12px; background: rgba(255,69,69,0.1); border: 1px solid rgba(255,69,69,0.4); color: #ff4545; border-radius: 10px; cursor: pointer; font-size: 0.7rem; font-weight: 900; letter-spacing: 1px;">🚪 LOGOUT</button>
                 </div>
             </nav>
 

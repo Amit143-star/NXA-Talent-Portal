@@ -136,7 +136,10 @@ body {
     padding: 1.5rem 1rem;
     z-index: 1050;
     transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-    transform: translateX(-300px); /* Hidden by default for mobile */
+    transform: translateX(-300px);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
 }
 
 .sidebar-nav.open {
