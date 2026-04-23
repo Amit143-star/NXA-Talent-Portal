@@ -751,22 +751,26 @@ class NXAEngine {
                         <svg class="icon-svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     </div>
                 ` : `
+                    ${(isSuper || isCenter || state.user.email === 'nxasupertalent@gmail.com') ? `
                     <div class="bottom-nav-item ${state.view === 'student_mgmt' ? 'active' : ''}" data-view="student_mgmt" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">
                         <span style="font-size: 1.1rem;">📂</span>
                         <span style="font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">DOSSIERS</span>
-                    </div>
+                    </div>` : ''}
+                    ${(isSuper || isMax || state.user.email === 'nxasupertalent@gmail.com') ? `
                     <div class="bottom-nav-item ${state.view === 'live' ? 'active' : ''}" data-view="live" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">
                         <span style="font-size: 1.1rem;">📡</span>
                         <span style="font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">LIVE</span>
-                    </div>
+                    </div>` : ''}
+                    ${(isSuper || isMax || state.user.email === 'nxasupertalent@gmail.com') ? `
                     <div class="bottom-nav-item ${state.view === 'courses' ? 'active' : ''}" data-view="courses" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">
                         <span style="font-size: 1.1rem;">📚</span>
                         <span style="font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">COURSES</span>
-                    </div>
+                    </div>` : ''}
+                    ${(isSuper || isCenter || state.user.email === 'nxasupertalent@gmail.com') ? `
                     <div class="bottom-nav-item ${state.view === 'notifications' ? 'active' : ''}" data-view="notifications" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">
                         <span style="font-size: 1.1rem;">🔔</span>
                         <span style="font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">SIGNALS</span>
-                    </div>
+                    </div>` : ''}
                 `}
             </div>
         `;
