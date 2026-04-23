@@ -264,6 +264,46 @@ class NXAEngine {
         alert('GLOBAL_SIGNAL_BROADCAST_SUCCESS');
     }
 
+    showToastNotification(alertData) {
+        const toast = document.createElement('div');
+        toast.style.position = 'fixed';
+        toast.style.top = '20px';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%) translateY(-150px)';
+        toast.style.background = 'rgba(10, 10, 15, 0.95)';
+        toast.style.border = '1px solid var(--accent-primary)';
+        toast.style.boxShadow = '0 10px 30px rgba(0,242,255,0.3)';
+        toast.style.color = '#fff';
+        toast.style.padding = '15px 25px';
+        toast.style.borderRadius = '16px';
+        toast.style.zIndex = '999999';
+        toast.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        toast.style.width = '90%';
+        toast.style.maxWidth = '400px';
+        toast.style.backdropFilter = 'blur(10px)';
+        
+        toast.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                <span style="font-size: 0.65rem; font-weight: 900; letter-spacing: 2px; color: var(--accent-primary);">NEW_SYSTEM_SIGNAL</span>
+                <span style="font-size: 1rem; cursor: pointer;" onclick="this.parentElement.parentElement.remove()">✕</span>
+            </div>
+            <div style="font-size: 0.85rem; line-height: 1.4;">${alertData.msg}</div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        
+        setTimeout(() => toast.style.transform = 'translateX(-50%) translateY(0)', 100);
+        
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                toast.style.transform = 'translateX(-50%) translateY(-150px)';
+                setTimeout(() => { if (document.body.contains(toast)) toast.remove(); }, 400);
+            }
+        }, 6000);
+    }
+
     syncCloudState() {
         if (typeof firebase === 'undefined') return;
         
@@ -286,10 +326,24 @@ class NXAEngine {
         });
 
         // SYNC BROADCAST MATRIX
+        let firstAlertSync = true;
+        let lastAlertId = 0;
         firebase.firestore().collection('nxa_broadcasts').onSnapshot(snap => {
             const alerts = snap.docs.map(doc => doc.data().id ? doc.data() : null).filter(a => a);
             alerts.sort((a,b) => b.id - a.id);
             localStorage.setItem('nxa_system_alerts', JSON.stringify(alerts));
+            
+            if (alerts.length > 0) {
+                if (firstAlertSync) {
+                    lastAlertId = alerts[0].id;
+                    firstAlertSync = false;
+                } else if (alerts[0].id > lastAlertId) {
+                    lastAlertId = alerts[0].id;
+                    if (AppState.user && AppState.role === 'student') {
+                        this.showToastNotification(alerts[0]);
+                    }
+                }
+            }
             if (AppState.view === 'notifications') this.render(AppState);
         });
 
