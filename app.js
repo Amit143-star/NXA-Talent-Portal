@@ -209,7 +209,7 @@ window.NXAStartLive = async () => {
     if(!topic || !link) return alert('Session Topic and Link required.');
     const liveData = { active: true, topic, link };
     localStorage.setItem('nxa_live_broadcast', JSON.stringify(liveData));
-    if (typeof firebase !== 'undefined') await Cloud.set('nxa_live_class', 'current', liveData);
+    if (typeof firebase !== 'undefined') await Cloud.set('nxa_broadcasts', 'live_class_state', liveData);
     window.dispatchEvent(new Event('nxa_internal_sync'));
     alert('Live Session Broadcasted Successfully!');
     AppState.setView('live');
@@ -219,7 +219,7 @@ window.NXAStopLive = async () => {
     if(!confirm('TERMINATE_UPLINK?')) return;
     const liveData = { active: false };
     localStorage.setItem('nxa_live_broadcast', JSON.stringify(liveData));
-    if (typeof firebase !== 'undefined') await Cloud.set('nxa_live_class', 'current', liveData);
+    if (typeof firebase !== 'undefined') await Cloud.set('nxa_broadcasts', 'live_class_state', liveData);
     window.dispatchEvent(new Event('nxa_internal_sync'));
     AppState.setView('live');
 };
@@ -380,7 +380,7 @@ class NXAEngine {
         });
 
         // SYNC LIVE CLASS MATRIX
-        firebase.firestore().collection('nxa_live_class').doc('current').onSnapshot(doc => {
+        firebase.firestore().collection('nxa_broadcasts').doc('live_class_state').onSnapshot(doc => {
             if (doc.exists) {
                 const liveData = doc.data();
                 localStorage.setItem('nxa_live_broadcast', JSON.stringify(liveData));
