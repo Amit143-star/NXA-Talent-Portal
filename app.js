@@ -739,6 +739,8 @@ class NXAEngine {
                         // 3. FORCE CROSS-TAB SYNC
                         window.dispatchEvent(new Event('nxa_internal_sync'));
                         
+                        alert("Submitted successfully!");
+                        
                         setTimeout(() => AppState.setView('self'), 500);
                     };
                 }, 100);
