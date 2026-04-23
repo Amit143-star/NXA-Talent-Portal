@@ -224,6 +224,65 @@ window.NXAStopLive = async () => {
     AppState.setView('live');
 };
 
+window.NXACreateCourse = () => {
+    const title = document.getElementById('new_c_title').value;
+    const domain = document.getElementById('new_c_domain').value;
+    if(!title || !domain) return alert('Title and Domain required.');
+    const courses = window.NXA.getCourses();
+    courses.push({ id: 'c' + Date.now(), title, domain });
+    window.NXA.saveCourses(courses);
+    document.getElementById('new_c_title').value = '';
+    document.getElementById('new_c_domain').value = '';
+    AppState.setView('course_admin');
+};
+
+window.NXADeleteCourse = (id) => {
+    if(!confirm('TERMINATE COURSE?')) return;
+    const filtered = window.NXA.getCourses().filter(c => c.id !== id);
+    window.NXA.saveCourses(filtered);
+    AppState.setView('course_admin');
+};
+
+window.NXAShowAssignModal = (courseId) => {
+    const modal = document.getElementById('assignModal');
+    const list = document.getElementById('studentAssignmentList');
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    const students = Object.values(profiles);
+    modal.style.display = 'flex';
+    list.innerHTML = students.map(s => {
+        const isAssigned = (s.assigned_courses || []).includes(courseId);
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 0.8rem; border-radius: 10px; border: 1px solid var(--glass-border);">
+                <div style="font-size: 0.8rem; font-weight: 800;">${s.fullname}</div>
+                <button onclick="window.NXAToggleAssignment('${s.email}', '${courseId}', this)" style="background: ${isAssigned ? '#00ff6a' : 'transparent'}; color: ${isAssigned ? '#000' : '#fff'}; border: 1px solid ${isAssigned ? '#00ff6a' : 'var(--glass-border)'}; padding: 4px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">
+                    ${isAssigned ? 'YES' : 'ADD'}
+                </button>
+            </div>
+        `;
+    }).join('');
+};
+
+window.NXAToggleAssignment = async (email, courseId, btn) => {
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    const s = profiles[email];
+    if(!s) return;
+    if(!s.assigned_courses) s.assigned_courses = [];
+    const idx = s.assigned_courses.indexOf(courseId);
+    if(idx > -1) {
+        s.assigned_courses.splice(idx, 1);
+        btn.innerText = 'ADD'; btn.style.background = 'transparent'; btn.style.color = '#fff';
+        btn.style.border = '1px solid var(--glass-border)';
+    } else {
+        s.assigned_courses.push(courseId);
+        btn.innerText = 'YES'; btn.style.background = '#00ff6a'; btn.style.color = '#000';
+        btn.style.border = '1px solid #00ff6a';
+    }
+    profiles[email] = s;
+    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+    if (typeof firebase !== 'undefined') await Cloud.set('nxa_student_profiles', email, s);
+    window.dispatchEvent(new Event('nxa_internal_sync'));
+};
+
 class NXAEngine {
     constructor() {
         window.NXA = this;
@@ -1649,7 +1708,7 @@ class NXAEngine {
                     <div style="display: grid; gap: 1rem;">
                         <input id="new_c_title" type="text" placeholder="Course Title" style="height: 40px; font-size: 0.8rem;">
                         <input id="new_c_domain" type="text" placeholder="Domain" style="height: 40px; font-size: 0.8rem;">
-                        <button id="commitCourseBtn" class="btn-primary-lg" style="padding: 10px; font-size: 0.7rem;">AUTHORIZE</button>
+                        <button type="button" onclick="window.NXACreateCourse()" class="btn-primary-lg" style="padding: 10px; font-size: 0.7rem;">AUTHORIZE</button>
                     </div>
                 </div>
 
@@ -1661,8 +1720,8 @@ class NXAEngine {
                                 <h3 style="margin: 2px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
                             </div>
                             <div style="display: flex; gap: 0.5rem;">
-                                <button onclick="window.NXA.showAssignModal('${c.id}')" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">ASSIGN</button>
-                                <button onclick="window.NXA.deleteCourse('${c.id}')" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid rgba(255,69,69,0.2); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">DEL</button>
+                                <button onclick="window.NXAShowAssignModal('${c.id}')" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">ASSIGN</button>
+                                <button onclick="window.NXADeleteCourse('${c.id}')" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid rgba(255,69,69,0.2); padding: 6px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">DEL</button>
                             </div>
                         </div>
                     `).join('')}
@@ -1676,60 +1735,6 @@ class NXAEngine {
                     </div>
                 </div>
             </section>
-            <script>
-                setTimeout(() => {
-                    const commitBtn = document.getElementById('commitCourseBtn');
-                    if(commitBtn) commitBtn.onclick = () => {
-                        const title = document.getElementById('new_c_title').value;
-                        const domain = document.getElementById('new_c_domain').value;
-                        if(!title || !domain) return;
-                        const courses = window.NXA.getCourses();
-                        courses.push({ id: 'c' + Date.now(), title, domain });
-                        window.NXA.saveCourses(courses);
-                        AppState.setView('course_admin'); 
-                    };
-                    window.NXA = this;
-                    window.NXA.deleteCourse = (id) => {
-                        if(!confirm('TERMINATE?')) return;
-                        const filtered = window.NXA.getCourses().filter(c => c.id !== id);
-                        window.NXA.saveCourses(filtered);
-                        AppState.setView('course_admin');
-                    };
-                    window.NXA.showAssignModal = (courseId) => {
-                        const modal = document.getElementById('assignModal');
-                        const list = document.getElementById('studentAssignmentList');
-                        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                        const students = Object.values(profiles);
-                        modal.style.display = 'flex';
-                        list.innerHTML = students.map(s => {
-                            const isAssigned = (s.assigned_courses || []).includes(courseId);
-                            return \`
-                                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 0.8rem; border-radius: 10px; border: 1px solid var(--glass-border);">
-                                    <div style="font-size: 0.8rem; font-weight: 800;">\${s.fullname}</div>
-                                    <button onclick="window.NXA.toggleAssignment('\${s.email}', '\${courseId}', this)" style="background: \${isAssigned ? '#00ff6a' : 'transparent'}; color: \${isAssigned ? '#000' : '#fff'}; border: 1px solid \${isAssigned ? '#00ff6a' : 'var(--glass-border)'}; padding: 4px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">
-                                        \${isAssigned ? 'YES' : 'ADD'}
-                                    </button>
-                                </div>
-                            \`;
-                        }).join('');
-                    };
-                    window.NXA.toggleAssignment = (email, courseId, btn) => {
-                        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                        const s = profiles[email];
-                        if(!s) return;
-                        if(!s.assigned_courses) s.assigned_courses = [];
-                        const idx = s.assigned_courses.indexOf(courseId);
-                        if(idx > -1) {
-                            s.assigned_courses.splice(idx, 1);
-                            btn.innerText = 'ADD'; btn.style.background = 'transparent'; btn.style.color = '#fff';
-                        } else {
-                            s.assigned_courses.push(courseId);
-                            btn.innerText = 'YES'; btn.style.background = '#00ff6a'; btn.style.color = '#000';
-                        }
-                        localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-                    };
-                }, 200);
-            </script>
         `;
     }
 
