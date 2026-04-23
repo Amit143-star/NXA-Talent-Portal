@@ -1390,7 +1390,7 @@ class NXAEngine {
         const liveData = JSON.parse(localStorage.getItem('nxa_live_broadcast')) || { active: false };
 
         return `
-            <section class="section" style="padding: 1.5rem; max-height: 100vh; overflow: hidden;">
+            <section class="section" style="padding: 1.5rem; max-height: 100vh; overflow-y: auto; padding-bottom: 150px;">
                 <!-- SLIM HEADER -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
                     <div>
