@@ -770,7 +770,7 @@ class NXAEngine {
         const isStudent = state.role === 'student';
 
         DOM.root.innerHTML = `
-            <nav class="navbar">
+            <nav class="navbar" style="display: ${state.view === 'home' ? 'flex' : 'none'};">
                 <div class="nav-container">
                     <div class="logo">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
