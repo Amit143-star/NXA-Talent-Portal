@@ -2176,33 +2176,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-        const dx       = e.changedTouches[0].clientX - touchStartX;
-        const dy       = Math.abs(e.changedTouches[0].clientY - touchStartY);
+        const endX     = e.changedTouches[0].clientX;
+        const endY     = e.changedTouches[0].clientY;
+        const dx       = endX - touchStartX;
+        const dy       = Math.abs(endY - touchStartY);
         const dt       = Date.now() - touchStartTime;
-        const isHoriz  = Math.abs(dx) > dy && Math.abs(dx) > 60 && dt < 400;
 
-        if (!isHoriz) return;
+        // Must be clearly horizontal (dx > dy), min 50px, completed within 500ms
+        if (Math.abs(dx) < 50 || Math.abs(dx) < dy || dt > 500) return;
 
         // ── Left-edge swipe RIGHT = Go Back ──
-        if (touchStartX < 60 && dx > 0) {
+        if (touchStartX < 80 && dx > 0) {
             AppState.goBack();
             return;
         }
 
-        // ── Full swipe LEFT = next tab, RIGHT = previous tab ──
+        // ── Full swipe = tab switch (only on main nav tabs) ──
         const tabs    = getTabOrder();
         const current = AppState.view;
         const idx     = tabs.indexOf(current);
-        if (idx === -1) return; // not a main tab, skip
+        if (idx === -1) return;
 
         if (dx < 0 && idx < tabs.length - 1) {
-            // Swipe left → next tab
             slideViewport('left');
-            setTimeout(() => AppState.setView(tabs[idx + 1]), 0);
+            AppState.setView(tabs[idx + 1]);
         } else if (dx > 0 && idx > 0) {
-            // Swipe right → previous tab
             slideViewport('right');
-            setTimeout(() => AppState.setView(tabs[idx - 1]), 0);
+            AppState.setView(tabs[idx - 1]);
         }
     }, { passive: true });
 
