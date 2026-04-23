@@ -802,7 +802,7 @@ class NXAEngine {
         if (state.view === 'leetcode') return this.viewLeetcode(state);
         if (state.view === 'notifications') return this.viewNotifications(state);
         if (state.view === 'live') return this.viewLive(state);
-        if (state.view === 'courses') return this.viewCourses(state);
+        if (state.view === 'courses') return (state.role === 'admin' || state.user.email === 'nxasupertalent@gmail.com') ? this.viewCourseAdmin(state) : this.viewCourses(state);
         if (state.view === 'self') return this.viewSelf(state);
         if (state.view === 'career') return this.viewCareer(state);
         if (state.view === 'course_admin') return this.viewCourseAdmin(state);
