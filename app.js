@@ -203,6 +203,27 @@ window.NXASubmitDossier = async (e) => {
     }
 };
 
+window.NXAStartLive = async () => {
+    const topic = document.getElementById('live_topic').value;
+    const link = document.getElementById('live_link').value;
+    if(!topic || !link) return alert('Session Topic and Link required.');
+    const liveData = { active: true, topic, link };
+    localStorage.setItem('nxa_live_broadcast', JSON.stringify(liveData));
+    if (typeof firebase !== 'undefined') await Cloud.set('nxa_live_class', 'current', liveData);
+    window.dispatchEvent(new Event('nxa_internal_sync'));
+    alert('Live Session Broadcasted Successfully!');
+    AppState.setView('live');
+};
+
+window.NXAStopLive = async () => {
+    if(!confirm('TERMINATE_UPLINK?')) return;
+    const liveData = { active: false };
+    localStorage.setItem('nxa_live_broadcast', JSON.stringify(liveData));
+    if (typeof firebase !== 'undefined') await Cloud.set('nxa_live_class', 'current', liveData);
+    window.dispatchEvent(new Event('nxa_internal_sync'));
+    AppState.setView('live');
+};
+
 class NXAEngine {
     constructor() {
         window.NXA = this;
@@ -356,6 +377,16 @@ class NXAEngine {
             // Trigger local sync event for other tabs
             window.dispatchEvent(new Event('nxa_internal_sync')); 
             if (AppState.view === 'student_mgmt') this.render(AppState);
+        });
+
+        // SYNC LIVE CLASS MATRIX
+        firebase.firestore().collection('nxa_live_class').doc('current').onSnapshot(doc => {
+            if (doc.exists) {
+                const liveData = doc.data();
+                localStorage.setItem('nxa_live_broadcast', JSON.stringify(liveData));
+                window.dispatchEvent(new Event('nxa_internal_sync'));
+                if (AppState.view === 'live') this.render(AppState);
+            }
         });
     }
 
@@ -1382,8 +1413,8 @@ class NXAEngine {
                             <div class="input-block"><label style="font-size: 0.5rem;">MEET_LINK</label><input id="live_link" type="text" value="${liveData.link || ''}" style="height: 45px; padding: 0 15px;" placeholder="Link"></div>
                         </div>
                         <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                            <button id="startLiveBtn" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.7rem; background: #00ff6a; color: #000; font-weight: 900;">${liveData.active ? 'UPDATE' : 'START_LIVE'}</button>
-                            ${liveData.active ? `<button id="stopLiveBtn" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.7rem; background: #ff4545; color: #fff; border: none; font-weight: 900;">TERMINATE</button>` : ''}
+                            <button type="button" onclick="window.NXAStartLive()" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.7rem; background: #00ff6a; color: #000; font-weight: 900;">${liveData.active ? 'UPDATE' : 'START_LIVE'}</button>
+                            ${liveData.active ? `<button type="button" onclick="window.NXAStopLive()" class="btn-primary-lg" style="flex: 1; padding: 10px; font-size: 0.7rem; background: #ff4545; color: #fff; border: none; font-weight: 900;">TERMINATE</button>` : ''}
                         </div>
                     </div>
                 ` : ''}
@@ -1407,24 +1438,6 @@ class NXAEngine {
                     `}
                 </div>
             </section>
-            <script>
-                setTimeout(() => {
-                    const sBtn = document.getElementById('startLiveBtn');
-                    const tBtn = document.getElementById('stopLiveBtn');
-                    if(sBtn) sBtn.onclick = () => {
-                        const topic = document.getElementById('live_topic').value;
-                        const link = document.getElementById('live_link').value;
-                        if(!topic || !link) return alert('Session Topic and Link required.');
-                        localStorage.setItem('nxa_live_broadcast', JSON.stringify({ active: true, topic, link }));
-                        AppState.setView('live');
-                    };
-                    if(tBtn) tBtn.onclick = () => {
-                        if(!confirm('TERMINATE_UPLINK?')) return;
-                        localStorage.setItem('nxa_live_broadcast', JSON.stringify({ active: false }));
-                        AppState.setView('live');
-                    };
-                }, 200);
-            </script>
         `;
     }
 
