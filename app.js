@@ -60,9 +60,20 @@ const AppState = {
     
     init() {
         try {
-            const savedUser = localStorage.getItem('nxa_active_session');
-            if (savedUser && savedUser !== 'undefined') this.user = JSON.parse(savedUser);
-            this.role = localStorage.getItem('nxa_active_role') || 'student';
+            let savedUser = localStorage.getItem('nxa_active_session');
+            // Cookie Fallback for WebView Persistence
+            if (!savedUser || savedUser === 'undefined' || savedUser === 'null') {
+                const match = document.cookie.match(new RegExp('(^| )nxa_active_session=([^;]+)'));
+                if (match) savedUser = decodeURIComponent(match[2]);
+            }
+            if (savedUser && savedUser !== 'undefined' && savedUser !== 'null') this.user = JSON.parse(savedUser);
+            
+            let savedRole = localStorage.getItem('nxa_active_role');
+            if (!savedRole) {
+                const rMatch = document.cookie.match(new RegExp('(^| )nxa_active_role=([^;]+)'));
+                if (rMatch) savedRole = decodeURIComponent(rMatch[2]);
+            }
+            this.role = savedRole || 'student';
             this.roleType = localStorage.getItem('nxa_active_role_type') || null;
         } catch (e) { console.warn("NXA_STATE_LOAD_FAIL:", e); }
     },
@@ -77,9 +88,16 @@ const AppState = {
     notify() { 
         try {
             this.listeners.forEach(cb => cb(this));
-            localStorage.setItem('nxa_active_session', JSON.stringify(this.user));
+            
+            const userStr = JSON.stringify(this.user);
+            // Storage
+            localStorage.setItem('nxa_active_session', userStr);
             localStorage.setItem('nxa_active_role', this.role || 'student');
             localStorage.setItem('nxa_active_role_type', this.roleType || '');
+            
+            // Cookie Persistence (1 Year)
+            document.cookie = `nxa_active_session=${encodeURIComponent(userStr)}; max-age=31536000; path=/`;
+            document.cookie = `nxa_active_role=${encodeURIComponent(this.role || 'student')}; max-age=31536000; path=/`;
         } catch (e) { console.warn("NXA_STORAGE: Local memory full/blocked."); }
     },
     setView(view) { this.view = view; this.notify(); },
@@ -87,6 +105,9 @@ const AppState = {
         this.user = null; 
         this.role = 'student';
         this.roleType = null;
+        // Wipe cookies
+        document.cookie = `nxa_active_session=; max-age=0; path=/`;
+        document.cookie = `nxa_active_role=; max-age=0; path=/`;
         this.notify(); 
     },
     
