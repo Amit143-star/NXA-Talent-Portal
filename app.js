@@ -2134,79 +2134,60 @@ class NXAEngine {
 document.addEventListener('DOMContentLoaded', () => {
     new NXAEngine();
 
-    // ── GESTURE: Full Touch Navigation System ──
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchStartTime = 0;
-
-    // ── Tab order for swipe navigation ──
+    // ── FULL GESTURE SYSTEM v3 ──────────────────────────────────────
     const studentTabs = ['home', 'live', 'courses', 'self'];
     const adminTabs   = ['home', 'student_mgmt', 'live', 'courses', 'notifications'];
 
     function getTabOrder() {
-        const role = AppState.role;
-        const rt   = AppState.roleType;
-        if (role !== 'admin') return studentTabs;
-        if (rt === 'max')    return ['home', 'live', 'courses'];
-        if (rt === 'center') return ['home', 'student_mgmt', 'notifications'];
-        return adminTabs; // super or default admin
+        if (AppState.role !== 'admin') return studentTabs;
+        if (AppState.roleType === 'max')    return ['home', 'live', 'courses'];
+        if (AppState.roleType === 'center') return ['home', 'student_mgmt', 'notifications'];
+        return adminTabs;
     }
 
-    function slideViewport(direction) {
-        const vp = document.getElementById('app-viewport');
-        if (!vp) return;
-        vp.style.transition = 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s';
-        vp.style.transform  = direction === 'left' ? 'translateX(-40px)' : 'translateX(40px)';
-        vp.style.opacity    = '0';
-        setTimeout(() => {
-            vp.style.transition = 'none';
-            vp.style.transform  = direction === 'left' ? 'translateX(40px)' : 'translateX(-40px)';
-            setTimeout(() => {
-                vp.style.transition = 'transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s';
-                vp.style.transform  = 'translateX(0)';
-                vp.style.opacity    = '1';
-            }, 20);
-        }, 280);
-    }
+    let _x0 = 0, _y0 = 0, _t0 = 0, _locked = false;
 
     document.addEventListener('touchstart', (e) => {
-        touchStartX    = e.touches[0].clientX;
-        touchStartY    = e.touches[0].clientY;
-        touchStartTime = Date.now();
+        _x0 = e.touches[0].clientX;
+        _y0 = e.touches[0].clientY;
+        _t0 = Date.now();
+        _locked = false;
     }, { passive: true });
 
-    document.addEventListener('touchend', (e) => {
-        const endX     = e.changedTouches[0].clientX;
-        const endY     = e.changedTouches[0].clientY;
-        const dx       = endX - touchStartX;
-        const dy       = Math.abs(endY - touchStartY);
-        const dt       = Date.now() - touchStartTime;
-
-        // Must be clearly horizontal (dx > dy), min 50px, completed within 500ms
-        if (Math.abs(dx) < 50 || Math.abs(dx) < dy || dt > 500) return;
-
-        // ── Left-edge swipe RIGHT = Go Back ──
-        if (touchStartX < 80 && dx > 0) {
-            AppState.goBack();
-            return;
+    // Use non-passive so we can preventDefault on horizontal swipes
+    document.addEventListener('touchmove', (e) => {
+        if (_locked) { e.preventDefault(); return; }
+        const dx = e.touches[0].clientX - _x0;
+        const dy = e.touches[0].clientY - _y0;
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            _locked = true;
+            e.preventDefault();
         }
+    }, { passive: false });
 
-        // ── Full swipe = tab switch (only on main nav tabs) ──
-        const tabs    = getTabOrder();
-        const current = AppState.view;
-        const idx     = tabs.indexOf(current);
+    document.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].clientX - _x0;
+        const dy = Math.abs(e.changedTouches[0].clientY - _y0);
+        const dt = Date.now() - _t0;
+
+        if (!_locked || Math.abs(dx) < 40 || dt > 600) return;
+
+        // Left-edge swipe right → go back
+        if (_x0 < 80 && dx > 0) { AppState.goBack(); return; }
+
+        // Tab switching swipe
+        const tabs = getTabOrder();
+        const idx  = tabs.indexOf(AppState.view);
         if (idx === -1) return;
 
         if (dx < 0 && idx < tabs.length - 1) {
-            slideViewport('left');
             AppState.setView(tabs[idx + 1]);
         } else if (dx > 0 && idx > 0) {
-            slideViewport('right');
             AppState.setView(tabs[idx - 1]);
         }
     }, { passive: true });
 
-    // ── Android Hardware Back Button ──
+    // Android Hardware Back Button
     history.pushState(null, '', window.location.href);
     window.addEventListener('popstate', () => {
         history.pushState(null, '', window.location.href);
