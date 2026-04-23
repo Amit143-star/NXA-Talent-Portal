@@ -648,7 +648,7 @@ class NXAEngine {
                         </div>
                     </div>
 
-                    <div style="padding-bottom: 80px;">
+                    <div style="padding-bottom: 150px;">
                         <button type="submit" id="dossierSubmit" class="btn-primary" style="width: 100%; height: 50px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2rem; box-shadow: 0 10px 20px rgba(0,242,255,0.2);">
                             AUTHORIZE_IDENTITY_MANIFEST
                         </button>
