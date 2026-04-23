@@ -238,21 +238,29 @@ window.NXAStopLive = async () => {
     AppState.setView('live');
 };
 
-window.NXACreateCourse = () => {
-    const title = document.getElementById('new_c_title').value;
-    const domain = document.getElementById('new_c_domain').value;
-    const desc = document.getElementById('new_c_desc').value;
+window.NXACreateCourse = async () => {
+    const title = document.getElementById('new_c_title').value.trim();
+    const domain = document.getElementById('new_c_domain').value.trim();
+    const desc = document.getElementById('new_c_desc') ? document.getElementById('new_c_desc').value.trim() : '';
     if(!title || !domain) return alert('Title and Domain required.');
     const courses = window.NXA.getCourses();
-    courses.push({ id: 'c' + Date.now(), title, domain, desc, refs: [], videos: [], docs: [] });
+    const newCourse = { id: 'c' + Date.now(), title, domain, desc, refs: [], videos: [], docs: [] };
+    courses.push(newCourse);
     window.NXA.saveCourses(courses);
+    // Sync to Firebase so all devices see the new course
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_courses', 'all_courses', { list: courses });
+    }
     AppState.setView('course_admin');
 };
 
-window.NXADeleteCourse = (id) => {
+window.NXADeleteCourse = async (id) => {
     if(!confirm('TERMINATE COURSE?')) return;
     const filtered = window.NXA.getCourses().filter(c => c.id !== id);
     window.NXA.saveCourses(filtered);
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_courses', 'all_courses', { list: filtered });
+    }
     AppState.setView('course_admin');
 };
 
@@ -320,6 +328,7 @@ window.NXADeleteResource = (courseId, type, idx) => {
     else if (type === 'yt') course.videos.splice(idx, 1);
     else if (type === 'doc') course.docs.splice(idx, 1);
     window.NXA.saveCourses(courses);
+    if (typeof firebase !== 'undefined') Cloud.set('nxa_courses', 'all_courses', { list: courses });
     AppState.setView('course_editor_' + courseId);
 };
 
@@ -525,6 +534,19 @@ class NXAEngine {
                 localStorage.setItem('nxa_live_broadcast', JSON.stringify(liveData));
                 window.dispatchEvent(new Event('nxa_internal_sync'));
                 if (AppState.view === 'live') this.render(AppState);
+            }
+        });
+
+        // SYNC COURSE REPOSITORY (real-time for all devices)
+        firebase.firestore().collection('nxa_courses').doc('all_courses').onSnapshot(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.list && Array.isArray(data.list)) {
+                    localStorage.setItem('nxa_system_courses', JSON.stringify(data.list));
+                    if (AppState.view === 'courses' || AppState.view === 'course_admin' || (AppState.view && AppState.view.startsWith('course_editor_'))) {
+                        this.render(AppState);
+                    }
+                }
             }
         });
     }
