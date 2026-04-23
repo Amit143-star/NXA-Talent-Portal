@@ -146,6 +146,63 @@ const DOM = {
     getMask: () => document.getElementById('loading-mask')
 };
 
+window.NXASubmitDossier = async (e) => {
+    if (e) e.preventDefault();
+    const btn = document.getElementById('dossierSubmit');
+    if (!btn) return;
+    btn.innerText = 'UPLOADING_TO_CLOUD...';
+    btn.disabled = true;
+
+    try {
+        const data = {
+            fullname: document.getElementById('d_fullname').value,
+            email: document.getElementById('d_email').value.toLowerCase().trim(),
+            phone: document.getElementById('d_phone').value,
+            dob: document.getElementById('d_dob').value,
+            gender: document.getElementById('d_gender').value,
+            address: document.getElementById('d_address').value,
+            usn: document.getElementById('d_usn').value,
+            branch: document.getElementById('d_branch').value,
+            sem: document.getElementById('d_sem').value,
+            college: document.getElementById('d_college').value,
+            passingyear: document.getElementById('d_passingyear').value,
+            marks10: document.getElementById('d_10th').value,
+            marks12: document.getElementById('d_12th').value,
+            cgpa: document.getElementById('d_cgpa').value,
+            pname: document.getElementById('d_pname').value,
+            pphone: document.getElementById('d_pphone').value,
+            domain: document.getElementById('d_domain').value,
+            linkedin: document.getElementById('d_linkedin').value,
+            github: document.getElementById('d_github').value,
+            skills: document.getElementById('d_skills').value,
+            submittedAt: new Date().toLocaleString()
+        };
+
+        // 1. Local Persistence (Failsafe)
+        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+        profiles[data.email] = data;
+        localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+
+        // 2. INDUSTRIAL CLOUD UPLINK
+        await Cloud.set('nxa_student_profiles', data.email, data);
+
+        if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
+        btn.innerText = 'DOSSIER_AUTHORIZED';
+        
+        // 3. FORCE CROSS-TAB SYNC
+        window.dispatchEvent(new Event('nxa_internal_sync'));
+        
+        alert("Submitted successfully!");
+        
+        setTimeout(() => AppState.setView('self'), 500);
+    } catch(err) {
+        console.error(err);
+        alert("Error submitting: Please make sure all fields are filled correctly.");
+        btn.innerText = 'AUTHORIZE_IDENTITY_MANIFEST';
+        btn.disabled = false;
+    }
+};
+
 class NXAEngine {
     constructor() {
         window.NXA = this;
@@ -684,67 +741,12 @@ class NXAEngine {
                     </div>
 
                     <div style="padding-bottom: 150px;">
-                        <button type="submit" id="dossierSubmit" class="btn-primary" style="width: 100%; height: 50px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2rem; box-shadow: 0 10px 20px rgba(0,242,255,0.2);">
+                        <button type="button" onclick="window.NXASubmitDossier(event)" id="dossierSubmit" class="btn-primary" style="width: 100%; height: 50px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2rem; box-shadow: 0 10px 20px rgba(0,242,255,0.2);">
                             AUTHORIZE_IDENTITY_MANIFEST
                         </button>
                     </div>
                 </form>
             </section>
-            <script>
-                setTimeout(() => {
-                    const form = document.getElementById('dossierForm');
-                    if (!form) return;
-                    form.onsubmit = async (e) => {
-                        e.preventDefault();
-                        const btn = document.getElementById('dossierSubmit');
-                        const originalText = btn.innerText;
-                        btn.innerText = 'UPLOADING_TO_CLOUD...';
-                        btn.disabled = true;
-
-                        const data = {
-                            fullname: document.getElementById('d_fullname').value,
-                            email: document.getElementById('d_email').value.toLowerCase().trim(),
-                            phone: document.getElementById('d_phone').value,
-                            dob: document.getElementById('d_dob').value,
-                            gender: document.getElementById('d_gender').value,
-                            address: document.getElementById('d_address').value,
-                            usn: document.getElementById('d_usn').value,
-                            branch: document.getElementById('d_branch').value,
-                            sem: document.getElementById('d_sem').value,
-                            college: document.getElementById('d_college').value,
-                            passingyear: document.getElementById('d_passingyear').value,
-                            marks10: document.getElementById('d_10th').value,
-                            marks12: document.getElementById('d_12th').value,
-                            cgpa: document.getElementById('d_cgpa').value,
-                            pname: document.getElementById('d_pname').value,
-                            pphone: document.getElementById('d_pphone').value,
-                            domain: document.getElementById('d_domain').value,
-                            linkedin: document.getElementById('d_linkedin').value,
-                            github: document.getElementById('d_github').value,
-                            skills: document.getElementById('d_skills').value,
-                            submittedAt: new Date().toLocaleString()
-                        };
-
-                        // 1. Local Persistence (Failsafe)
-                        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                        profiles[data.email] = data;
-                        localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-
-                        // 2. INDUSTRIAL CLOUD UPLINK
-                        await Cloud.set('nxa_student_profiles', data.email, data);
-
-                        if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
-                        btn.innerText = 'DOSSIER_AUTHORIZED';
-                        
-                        // 3. FORCE CROSS-TAB SYNC
-                        window.dispatchEvent(new Event('nxa_internal_sync'));
-                        
-                        alert("Submitted successfully!");
-                        
-                        setTimeout(() => AppState.setView('self'), 500);
-                    };
-                }, 100);
-            </script>
         `;
     }
 
