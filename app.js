@@ -606,6 +606,17 @@ window.NXAUploadQR = (input) => {
     reader.readAsDataURL(file);
 };
 
+window.NXAFastSetPrice = (id, price) => {
+    if(!price || isNaN(price)) return alert('Invalid Price');
+    const courses = window.NXA.getCourses();
+    const idx = courses.findIndex(c => c.id === id);
+    if(idx === -1) return;
+    courses[idx].price = String(price);
+    window.NXA.saveCourses(courses);
+    alert(`Price updated to ₹${price} for ${courses[idx].title}`);
+    AppState.render(AppState);
+};
+
 window.NXASaveCourseMeta = (id) => {
     const title = document.getElementById('edit_c_title').value.trim();
     const domain = document.getElementById('edit_c_domain').value.trim();
@@ -1326,7 +1337,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.0</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.1</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2450,9 +2461,11 @@ class NXAEngine {
                                 <div style="flex:1;">
                                     <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">${c.domain.toUpperCase()}</span>
                                     <h3 style="margin: 4px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
-                                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
-                                        <div style="font-size: 0.65rem; color: #ffcc00; font-weight: 900; background: rgba(255,204,0,0.1); padding: 2px 8px; border-radius: 4px;">₹${c.price || '999'}</div>
-                                        <span style="font-size: 0.5rem; color: var(--text-dim);">ID: ${c.id}</span>
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">
+                                        <div style="font-size: 0.5rem; color: var(--text-dim);">PRICE: ₹</div>
+                                        <input type="number" id="fast_price_${c.id}" value="${c.price || '999'}" style="width: 60px; height: 24px; font-size: 0.7rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #ffcc00; text-align: center; border-radius: 4px; font-weight: 900;">
+                                        <button onclick="window.NXAFastSetPrice('${c.id}', document.getElementById('fast_price_${c.id}').value)" style="background: var(--accent-primary); color: #000; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">SET</button>
+                                        <span style="font-size: 0.5rem; color: var(--text-dim); margin-left: auto;">ID: ${c.id}</span>
                                     </div>
                                 </div>
                             </div>
