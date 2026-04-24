@@ -893,16 +893,21 @@ class NXAEngine {
     syncCloudState() {
         if (typeof firebase === 'undefined') return;
 
-        // IMMEDIATE COURSE FETCH on startup (don't wait for snapshot)
-        firebase.firestore().collection('nxa_broadcasts').doc('course_matrix').get().then(doc => {
-            if (doc.exists) {
-                const data = doc.data();
-                if (data && data.list && Array.isArray(data.list) && data.list.length > 0) {
-                    localStorage.setItem('nxa_system_courses', JSON.stringify(data.list));
-                    this.render(AppState);
+        // ATTACH REAL-TIME BROADCAST LISTENER (ONE-TIME)
+        if (!window.NXA_MATRIX_LISTENING) {
+            window.NXA_MATRIX_LISTENING = true;
+            firebase.firestore().collection('nxa_broadcasts').doc('course_matrix').onSnapshot(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data && data.list) {
+                        localStorage.setItem('nxa_system_courses', JSON.stringify(data.list));
+                        if (AppState.view === 'courses' || AppState.view === 'course_admin') {
+                            this.render(AppState);
+                        }
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // IMMEDIATE PROJECT FETCH
         firebase.firestore().collection('nxa_broadcasts').doc('project_matrix').get().then(doc => {
@@ -1349,7 +1354,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.5</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.6</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
