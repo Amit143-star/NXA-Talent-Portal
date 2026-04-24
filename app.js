@@ -338,17 +338,52 @@ window.NXAShowAssignModal = (courseId) => {
     const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
     const students = Object.values(profiles);
     modal.style.display = 'flex';
-    list.innerHTML = students.map(s => {
-        const isAssigned = (s.assigned_courses || []).includes(courseId);
-        return `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 0.8rem; border-radius: 10px; border: 1px solid var(--glass-border);">
-                <div style="font-size: 0.8rem; font-weight: 800;">${s.fullname}</div>
-                <button onclick="window.NXAToggleAssignment('${s.email}', '${courseId}', this)" style="background: ${isAssigned ? '#00ff6a' : 'transparent'}; color: ${isAssigned ? '#000' : '#fff'}; border: 1px solid ${isAssigned ? '#00ff6a' : 'var(--glass-border)'}; padding: 4px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 800;">
-                    ${isAssigned ? 'YES' : 'ADD'}
-                </button>
-            </div>
-        `;
-    }).join('');
+    // Store courseId on modal for ASSIGN ALL
+    modal.dataset.courseId = courseId;
+    list.innerHTML = `
+        <div style="display: flex; gap: 8px; margin-bottom: 1rem;">
+            <button onclick="window.NXAAssignAll('${courseId}', true)" style="flex:1; padding: 10px; background: #00ff6a; color: #000; border: none; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">✅ ASSIGN ALL</button>
+            <button onclick="window.NXAAssignAll('${courseId}', false)" style="flex:1; padding: 10px; background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid rgba(255,69,69,0.3); border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">✕ REMOVE ALL</button>
+        </div>
+        <div style="border-top: 1px solid var(--glass-border); padding-top: 1rem; display: grid; gap: 0.7rem;">
+        ${students.map(s => {
+            const isAssigned = (s.assigned_courses || []).includes(courseId);
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 0.8rem; border-radius: 10px; border: 1px solid var(--glass-border);">
+                    <div>
+                        <div style="font-size: 0.8rem; font-weight: 800;">${s.fullname}</div>
+                        <div style="font-size: 0.55rem; color: var(--text-dim);">${s.email}</div>
+                    </div>
+                    <button onclick="window.NXAToggleAssignment('${s.email}', '${courseId}', this)" style="background: ${isAssigned ? '#00ff6a' : 'transparent'}; color: ${isAssigned ? '#000' : '#fff'}; border: 1px solid ${isAssigned ? '#00ff6a' : 'var(--glass-border)'}; padding: 6px 12px; border-radius: 6px; font-size: 0.55rem; font-weight: 800;">
+                        ${isAssigned ? '✓ YES' : 'ADD'}
+                    </button>
+                </div>
+            `;
+        }).join('')}
+        </div>
+    `;
+};
+
+window.NXAAssignAll = async (courseId, assign) => {
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    Object.keys(profiles).forEach(email => {
+        const s = profiles[email];
+        if (!s.assigned_courses) s.assigned_courses = [];
+        if (assign) {
+            if (!s.assigned_courses.includes(courseId)) s.assigned_courses.push(courseId);
+        } else {
+            s.assigned_courses = s.assigned_courses.filter(id => id !== courseId);
+        }
+        profiles[email] = s;
+    });
+    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+    // Sync each student to Firebase
+    if (typeof firebase !== 'undefined') {
+        const saves = Object.entries(profiles).map(([email, s]) => Cloud.set('nxa_student_profiles', email, s));
+        await Promise.all(saves);
+    }
+    alert(assign ? '✅ Course assigned to ALL students!' : '✕ Course removed from ALL students.');
+    window.NXAShowAssignModal(courseId);
 };
 
 window.NXAToggleAssignment = async (email, courseId, btn) => {
