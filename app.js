@@ -510,7 +510,30 @@ class NXAEngine {
 
     syncCloudState() {
         if (typeof firebase === 'undefined') return;
-        
+
+        // IMMEDIATE COURSE FETCH on startup (don't wait for snapshot)
+        firebase.firestore().collection('nxa_broadcasts').doc('course_matrix').get().then(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.list && Array.isArray(data.list) && data.list.length > 0) {
+                    localStorage.setItem('nxa_system_courses', JSON.stringify(data.list));
+                    this.render(AppState);
+                }
+            }
+        });
+
+        // IMMEDIATE STUDENT PROFILE FETCH (get latest assigned_courses)
+        if (AppState.user && AppState.user.email) {
+            firebase.firestore().collection('nxa_student_profiles').doc(AppState.user.email).get().then(doc => {
+                if (doc.exists) {
+                    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+                    profiles[AppState.user.email] = doc.data();
+                    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+                    this.render(AppState);
+                }
+            });
+        }
+
         // SYNC IDENTITIES MATRIX
         firebase.firestore().collection('nxa_identities').onSnapshot(snap => {
             const localUsers = JSON.parse(localStorage.getItem('nxa_users')) || [];
