@@ -890,6 +890,34 @@ class NXAEngine {
         }, 6000);
     }
 
+    async hardSync() {
+        const status = document.getElementById('sync_status');
+        if(status) {
+            status.innerText = 'SYNCING...';
+            status.style.color = '#ffcc00';
+        }
+        
+        await this.syncCloudState();
+        
+        // Extra fetch for Courses explicitly
+        if (typeof firebase !== 'undefined') {
+            const doc = await firebase.firestore().collection('nxa_broadcasts').doc('course_matrix').get();
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.list) {
+                    this.saveCourses(data.list);
+                    alert('MATRIX_MANIFESTED: 100% Price Accuracy achieved.');
+                    this.render(AppState);
+                }
+            }
+        }
+        
+        if(status) {
+            status.innerText = 'CLOUD_LIVE';
+            status.style.color = 'var(--text-dim)';
+        }
+    }
+
     syncCloudState() {
         if (typeof firebase === 'undefined') return;
 
@@ -1354,7 +1382,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.6</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.7</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2270,11 +2298,18 @@ class NXAEngine {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
                     <div>
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px;">COURSE_MATRIX</h2>
-                        <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 800;">TOTAL_ASSIGNED: ${myCourses.length}</span>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                            <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 800;">TOTAL_ASSIGNED: ${myCourses.length}</span>
+                            <span style="width: 4px; height: 4px; background: var(--accent-primary); border-radius: 50%; box-shadow: 0 0 5px var(--accent-primary);"></span>
+                            <span id="sync_status" style="color: var(--text-dim); font-size: 0.45rem; font-weight: 900; letter-spacing: 1px;">CLOUD_LIVE</span>
+                        </div>
                     </div>
-                    ${(state.role === 'admin' || state.user.email === 'nxasupertalent@gmail.com') ? `
-                        <button onclick="AppState.setView('course_admin')" style="background: var(--accent-primary); color: #000; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">MANAGE</button>
-                    ` : ''}
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="window.NXA.hardSync()" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 6px 10px; border-radius: 6px; font-size: 0.5rem; font-weight: 900; cursor: pointer;">🔄 SYNC</button>
+                        ${(state.role === 'admin' || state.user.email === 'nxasupertalent@gmail.com') ? `
+                            <button onclick="AppState.setView('course_admin')" style="background: var(--accent-primary); color: #000; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">MANAGE</button>
+                        ` : ''}
+                    </div>
                 </div>
 
                 ${myCourses.length === 0 ? `
