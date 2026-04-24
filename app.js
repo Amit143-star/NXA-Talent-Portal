@@ -575,6 +575,23 @@ window.NXADeleteCourse = async (id) => {
     AppState.setView('course_admin');
 };
 
+window.NXASaveCourseMeta = (id) => {
+    const title = document.getElementById('edit_c_title').value.trim();
+    const domain = document.getElementById('edit_c_domain').value.trim();
+    const price = document.getElementById('edit_c_price').value.trim();
+
+    if(!title || !domain) return alert('Title and Domain are required.');
+
+    const courses = window.NXA.getCourses();
+    const idx = courses.findIndex(c => c.id === id);
+    if(idx === -1) return;
+
+    courses[idx] = { ...courses[idx], title, domain, price };
+    window.NXA.saveCourses(courses);
+    alert('METADATA_SYNC_SUCCESS');
+    AppState.setView('course_admin');
+};
+
 window.NXAOpenCourseEditor = (id) => {
     AppState.setView('course_editor_' + id);
 };
@@ -1244,9 +1261,10 @@ class NXAEngine {
         DOM.root.innerHTML = `
             <nav class="navbar" style="display: ${state.view === 'home' ? 'flex' : 'none'};">
                 <div class="nav-container">
-                    <div class="logo">
+                    <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.4</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2123,9 +2141,9 @@ class NXAEngine {
     // PERSISTENT COURSE REPOSITORY
     getCourses() {
         const defaultCourses = [
-            { id: 'c1', title: 'Advanced Neural AI', domain: 'Artificial Intelligence' },
-            { id: 'c2', title: 'Full-Stack Nexus', domain: 'Web Engineering' },
-            { id: 'c3', title: 'Cyber Security Protocol', domain: 'Security' }
+            { id: 'c1', title: 'Advanced Neural AI', domain: 'Artificial Intelligence', price: '499' },
+            { id: 'c2', title: 'Full-Stack Nexus', domain: 'Web Engineering', price: '599' },
+            { id: 'c3', title: 'Cyber Security Protocol', domain: 'Security', price: '699' }
         ];
         const saved = localStorage.getItem('nxa_system_courses');
         return saved ? JSON.parse(saved) : defaultCourses;
@@ -2375,11 +2393,22 @@ class NXAEngine {
 
         return `
             <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; padding-bottom: 120px;">
-                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
-                    <button onclick="AppState.setView('course_admin')" style="background: none; border: none; color: var(--accent-primary); font-size: 1.2rem; cursor: pointer;">←</button>
-                    <div>
-                        <h2 style="font-family: var(--font-heading); font-size: 1.3rem; margin: 0; letter-spacing: 2px;">${course.title}</h2>
-                        <span style="color: var(--text-dim); font-size: 0.6rem;">${course.domain}</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <button onclick="AppState.setView('course_admin')" style="background: none; border: none; color: var(--accent-primary); font-size: 1.2rem; cursor: pointer;">←</button>
+                        <div>
+                            <h2 style="font-family: var(--font-heading); font-size: 1.3rem; margin: 0; letter-spacing: 2px;">EDITOR: ${course.title}</h2>
+                        </div>
+                    </div>
+                    <button onclick="window.NXASaveCourseMeta('${course.id}')" style="background: #00ff6a; color: #000; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">SAVE_CHANGES</button>
+                </div>
+
+                <div style="${sectionStyle}">
+                    <span style="${labelStyle}">📍 CORE_IDENTIFIERS</span>
+                    <div style="display: grid; gap: 10px;">
+                        <input id="edit_c_title" type="text" value="${course.title}" placeholder="Title" style="${inputStyle}">
+                        <input id="edit_c_domain" type="text" value="${course.domain}" placeholder="Domain" style="${inputStyle}">
+                        <input id="edit_c_price" type="number" value="${course.price || '0'}" placeholder="Price (₹)" style="${inputStyle}">
                     </div>
                 </div>
 
