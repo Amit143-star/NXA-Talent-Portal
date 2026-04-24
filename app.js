@@ -516,12 +516,15 @@ window.NXASetPaymentConfig = async () => {
     AppState.setView('course_admin');
 };
 
-window.NXAConfirmPayment = async () => {
+window.NXAConfirmPayment = async (courseId) => {
     const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
     const s = profiles[AppState.user.email];
     if(!s) return alert('IDENTITY_SYNC_ERROR: Please re-login.');
 
-    s.payment_status = 'verified';
+    if (!s.paid_courses) s.paid_courses = [];
+    if (!s.paid_courses.includes(courseId)) {
+        s.paid_courses.push(courseId);
+    }
     s.payment_date = new Date().toISOString();
     
     profiles[AppState.user.email] = s;
@@ -530,7 +533,7 @@ window.NXAConfirmPayment = async () => {
         await Cloud.set('nxa_student_profiles', AppState.user.email, s);
     }
     
-    alert('PAYMENT_MANIFEST_SUCCESS: Course Matrix is now Unlocked.');
+    alert('PAYMENT_MANIFEST_SUCCESS: Course Node Unlocked.');
     AppState.setView('courses');
 };
 
@@ -538,9 +541,21 @@ window.NXACreateCourse = async () => {
     const title = document.getElementById('new_c_title').value.trim();
     const domain = document.getElementById('new_c_domain').value.trim();
     const desc = document.getElementById('new_c_desc') ? document.getElementById('new_c_desc').value.trim() : '';
+    const price = document.getElementById('new_c_price')?.value.trim() || '0';
+
     if(!title || !domain) return alert('Title and Domain required.');
+
     const courses = window.NXA.getCourses();
-    const newCourse = { id: 'c' + Date.now(), title, domain, desc, refs: [], videos: [], docs: [] };
+    const newCourse = { 
+        id: 'NXA_' + Date.now(), 
+        title, 
+        domain, 
+        desc, 
+        price, 
+        refs: [], 
+        videos: [], 
+        docs: [] 
+    };
     courses.push(newCourse);
     window.NXA.saveCourses(courses);
     // Sync to Firebase so all devices see the new course
@@ -1142,6 +1157,23 @@ class NXAEngine {
         } else {
             alert("SECURITY BREACH: INVALID COMMAND CREDENTIALS.");
         }
+    }
+
+    showPaymentGateway(courseId, price) {
+        const courses = this.getCourses();
+        const course = courses.find(c => c.id === courseId);
+        if(!course) return;
+
+        const modal = document.getElementById('course_pay_gateway');
+        const title = document.getElementById('pay_course_title');
+        const priceLabel = document.getElementById('pay_course_price');
+        const confirmBtn = document.getElementById('confirm_pay_btn');
+
+        title.innerText = `FOR COURSE: ${course.title.toUpperCase()}`;
+        priceLabel.innerText = `₹${price}`;
+        confirmBtn.onclick = () => window.NXAConfirmPayment(courseId);
+        
+        modal.style.display = 'flex';
     }
 
     async handleRegister(name, emailRaw, pass) {
@@ -2103,53 +2135,14 @@ class NXAEngine {
         localStorage.setItem('nxa_system_courses', JSON.stringify(courses));
     }
 
-    viewCourses(state) {
-        const allCourses = this.getCourses();
-        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-        const myProfile = profiles[state.user.email] || {};
-        const myCourseIds = myProfile.assigned_courses || [];
-        const myCourses = allCourses.filter(c => myCourseIds.includes(c.id));
+        const payConfig = JSON.parse(localStorage.getItem('nxa_payment_config')) || { upi: '' };
         
-        const payConfig = JSON.parse(localStorage.getItem('nxa_payment_config')) || { fee: '0', upi: '' };
-        const isVerified = myProfile.payment_status === 'verified' || String(payConfig.fee) === '0';
-
-        if (!isVerified && state.role === 'student') {
-            return `
-                <section class="section" style="padding: 2rem; text-align: center; max-height: 100vh; overflow-y: auto; background: #000;">
-                    <div style="margin-bottom: 2rem;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
-                        <h2 style="font-family: var(--font-heading); color: #ffcc00; letter-spacing: 2px;">COURSE_MATRIX_LOCKED</h2>
-                        <p style="color: var(--text-dim); font-size: 0.8rem;">To access your assigned industrial courses, complete the secure enrollment payment.</p>
-                    </div>
-
-                    <div style="background: var(--glass-bg); padding: 2rem; border-radius: 20px; border: 1px solid var(--accent-primary); margin-bottom: 2rem;">
-                        <div style="font-size: 0.6rem; color: var(--accent-primary); font-weight: 800; letter-spacing: 2px; margin-bottom: 15px;">NXA_SECURE_PAYMENT</div>
-                        <div style="font-size: 2.2rem; font-weight: 900; color: #fff; margin-bottom: 5px;">₹${payConfig.fee}</div>
-                        <div style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 20px;">ONE-TIME ACCESS FEE</div>
-                        
-                        ${payConfig.qr ? `<img src="${payConfig.qr}" style="width: 180px; height: 180px; background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 20px;">` : `
-                            <div style="padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 20px;">
-                                <div style="font-size: 0.55rem; color: var(--text-dim);">UPI_ID_IDENTIFIER</div>
-                                <div style="font-size: 1rem; font-weight: 800; color: #fff;">${payConfig.upi}</div>
-                            </div>
-                        `}
-                        
-                        <p style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 25px; line-height: 1.5;">Scan QR or pay to the UPI ID above. After transaction, click the verify button below.</p>
-                        
-                        <button onclick="window.NXAConfirmPayment()" style="width: 100%; padding: 18px; background: #00ff6a; color: #000; border: none; border-radius: 12px; font-weight: 900; font-size: 0.8rem; letter-spacing: 1px; cursor: pointer; box-shadow: 0 0 20px rgba(0,255,106,0.3);">CONFIRM_TRANSACTION_SUCCESS</button>
-                    </div>
-
-                    <p style="font-size: 0.5rem; color: var(--text-dim); opacity: 0.5;">Secure transaction monitored by NXA Industrial Node.</p>
-                </section>
-            `;
-        }
-
         return `
             <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
                     <div>
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px;">COURSE_MATRIX</h2>
-                        <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 800;">ENROLLED: ${myCourses.length}</span>
+                        <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 800;">TOTAL_ASSIGNED: ${myCourses.length}</span>
                     </div>
                     ${(state.role === 'admin' || state.user.email === 'nxasupertalent@gmail.com') ? `
                         <button onclick="AppState.setView('course_admin')" style="background: var(--accent-primary); color: #000; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">MANAGE</button>
@@ -2162,20 +2155,63 @@ class NXAEngine {
                         <h4 style="color: var(--text-dim); font-size: 0.9rem;">No assigned courses.</h4>
                     </div>
                 ` : `
-                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; padding-bottom: 5rem;">
-                        ${myCourses.map(c => `
-                            <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 16px; position: relative; display: flex; justify-content: space-between; align-items: center;">
-                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent-primary); border-radius: 4px 0 0 4px;"></div>
-                                <div>
-                                    <span style="font-size: 0.5rem; color: var(--accent-primary); font-weight: 800; letter-spacing: 1px;">${c.domain.toUpperCase()}</span>
-                                    <h3 style="margin: 4px 0; font-size: 1.1rem; color: #fff;">${c.title}</h3>
-                                    <span style="font-size: 0.55rem; color: var(--text-dim);">📹 ${(c.videos||[]).length} · 🔗 ${(c.refs||[]).length} · 📄 ${(c.docs||[]).length}</span>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 1.2rem; padding-bottom: 5rem;">
+                        ${myCourses.map(c => {
+                            const isPaid = (myProfile.paid_courses || []).includes(c.id) || String(c.price) === '0' || !c.price;
+                            return `
+                                <div style="background: var(--glass-bg); border: 1px solid ${isPaid ? 'var(--glass-border)' : 'rgba(255, 204, 0, 0.3)'}; padding: 1.5rem; border-radius: 16px; position: relative;">
+                                    <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; border-radius: 4px 0 0 4px;"></div>
+                                    
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                        <div style="flex: 1;">
+                                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
+                                                <span style="font-size: 0.5rem; color: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; font-weight: 800; letter-spacing: 1px;">${c.domain.toUpperCase()}</span>
+                                                ${!isPaid ? `<span style="font-size: 10px;">🔒</span>` : ''}
+                                            </div>
+                                            <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">${c.title}</h3>
+                                            <p style="font-size: 0.55rem; color: var(--text-dim); margin: 6px 0;">📹 ${(c.videos||[]).length} · 🔗 ${(c.refs||[]).length} · 📄 ${(c.docs||[]).length}</p>
+                                        </div>
+                                        
+                                        <div style="text-align: right;">
+                                            ${isPaid ? `
+                                                <button onclick="AppState.setView('course_view_${c.id}')" class="btn-primary-lg" style="padding: 10px 20px; font-size: 0.65rem; height: auto; width: auto; background: var(--accent-primary);">OPEN_UNIT</button>
+                                            ` : `
+                                                <div style="margin-bottom: 8px;">
+                                                    <div style="font-size: 0.9rem; font-weight: 900; color: #fff;">₹${c.price}</div>
+                                                    <div style="font-size: 0.45rem; color: var(--text-dim); letter-spacing: 1px;">PAY_TO_UNLOCK</div>
+                                                </div>
+                                                <button onclick="NXA.showPaymentGateway('${c.id}', '${c.price}')" style="background: #ffcc00; color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">ENROLL_NOW</button>
+                                            `}
+                                        </div>
+                                    </div>
                                 </div>
-                                <button onclick="AppState.setView('course_view_${c.id}')" class="btn-primary-lg" style="padding: 8px 15px; font-size: 0.6rem; height: fit-content;">OPEN</button>
-                            </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                 `}
+
+                <!-- INDIVIDUAL COURSE PAYMENT GATEWAY -->
+                <div id="course_pay_gateway" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; align-items: center; justify-content: center; padding: 1.5rem;">
+                    <div style="background: var(--bg-dark); border: 2px solid #ffcc00; border-radius: 24px; padding: 2rem; width: 100%; max-width: 380px; text-align: center;">
+                        <h3 style="color: #ffcc00; font-family: var(--font-heading); margin-bottom: 5px;">SECURE_ENROLLMENT</h3>
+                        <p id="pay_course_title" style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 2rem;"></p>
+                        
+                        <div id="pay_qr_container" style="margin-bottom: 2rem;">
+                            ${payConfig.qr ? `<img src="${payConfig.qr}" style="width: 180px; height: 180px; background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 10px;">` : `
+                                <div style="padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 10px;">
+                                    <div style="font-size: 0.55rem; color: var(--text-dim);">UPI_ID</div>
+                                    <div style="font-size: 1rem; font-weight: 800; color: #fff;">${payConfig.upi}</div>
+                                </div>
+                            `}
+                            <div style="font-size: 1.8rem; font-weight: 900; color: #fff;" id="pay_course_price"></div>
+                        </div>
+                        
+                        <div style="display: grid; gap: 10px;">
+                            <button id="confirm_pay_btn" style="background: #00ff6a; color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: 900; font-size: 0.8rem; cursor: pointer;">CONFIRM_SUCCESS</button>
+                            <button onclick="document.getElementById('course_pay_gateway').style.display='none'" style="background: none; border: 1px solid var(--glass-border); color: var(--text-dim); padding: 10px; border-radius: 12px; font-size: 0.6rem; cursor: pointer;">CANCEL</button>
+                        </div>
+                    </div>
+                </div>
             </section>
         `;
     }
@@ -2281,6 +2317,7 @@ class NXAEngine {
                     <div style="display: grid; gap: 0.8rem;">
                         <input id="new_c_title" type="text" placeholder="Course Title" style="height: 40px; font-size: 0.8rem;">
                         <input id="new_c_domain" type="text" placeholder="Domain (e.g. Web Engineering)" style="height: 40px; font-size: 0.8rem;">
+                        <input id="new_c_price" type="number" placeholder="Enrollment Price (₹)" style="height: 40px; font-size: 0.8rem;">
                         <textarea id="new_c_desc" placeholder="Course Description..." style="height: 80px; font-size: 0.8rem; padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 10px; color: #fff; resize: none;"></textarea>
                         <button type="button" onclick="window.NXACreateCourse()" class="btn-primary-lg" style="padding: 10px; font-size: 0.7rem;">AUTHORIZE COURSE</button>
                     </div>
@@ -2290,14 +2327,11 @@ class NXAEngine {
                     ${courses.length === 0 ? `<div style="text-align:center; color: var(--text-dim); padding: 3rem; border: 1px dashed var(--glass-border); border-radius: 16px;">No courses yet. Tap + NEW to create one.</div>` : ''}
                     ${courses.map(c => `
                         <div style="background: var(--glass-bg); border-radius: 16px; border: 1px solid var(--glass-border); overflow: hidden;">
-                            <div style="padding: 1rem;">
-                                <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 800;">${c.domain}</span>
-                                <h3 style="margin: 4px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
-                                ${c.desc ? `<p style="color: var(--text-dim); font-size: 0.7rem; margin: 4px 0 0; line-height: 1.4;">${c.desc}</p>` : ''}
-                                <div style="display: flex; gap: 8px; margin-top: 1rem; flex-wrap: wrap;">
-                                    <span style="background: rgba(0,242,255,0.08); color: var(--accent-primary); border: 1px solid rgba(0,242,255,0.2); padding: 3px 8px; border-radius: 4px; font-size: 0.5rem;">📹 ${(c.videos||[]).length} Videos</span>
-                                    <span style="background: rgba(0,255,106,0.08); color: #00ff6a; border: 1px solid rgba(0,255,106,0.2); padding: 3px 8px; border-radius: 4px; font-size: 0.5rem;">🔗 ${(c.refs||[]).length} Refs</span>
-                                    <span style="background: rgba(255,204,0,0.08); color: #ffcc00; border: 1px solid rgba(255,204,0,0.2); padding: 3px 8px; border-radius: 4px; font-size: 0.5rem;">📄 ${(c.docs||[]).length} Docs</span>
+                            <div style="padding: 1rem; display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div style="flex:1;">
+                                    <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 800;">${c.domain}</span>
+                                    <h3 style="margin: 4px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
+                                    <div style="font-size: 0.55rem; color: #ffcc00; font-weight: 900;">₹${c.price || '0'}</div>
                                 </div>
                             </div>
                             <div style="display: flex; border-top: 1px solid var(--glass-border);">
