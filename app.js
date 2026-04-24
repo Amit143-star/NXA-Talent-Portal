@@ -2135,6 +2135,13 @@ class NXAEngine {
         localStorage.setItem('nxa_system_courses', JSON.stringify(courses));
     }
 
+    viewCourses(state) {
+        const allCourses = this.getCourses();
+        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+        const myProfile = profiles[state.user.email] || {};
+        const myCourseIds = myProfile.assigned_courses || [];
+        const myCourses = allCourses.filter(c => myCourseIds.includes(c.id));
+        
         const payConfig = JSON.parse(localStorage.getItem('nxa_payment_config')) || { upi: '' };
         
         return `
