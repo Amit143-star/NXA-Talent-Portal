@@ -1264,7 +1264,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.5</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.6</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2182,7 +2182,8 @@ class NXAEngine {
                 ` : `
                     <div style="display: grid; grid-template-columns: 1fr; gap: 1.2rem; padding-bottom: 5rem;">
                         ${myCourses.map(c => {
-                            const isPaid = (myProfile.paid_courses || []).includes(c.id) || String(c.price) === '0' || !c.price;
+                            const coursePrice = c.price || '999';
+                            const isPaid = (myProfile.paid_courses || []).includes(c.id) || String(coursePrice) === '0';
                             return `
                                 <div style="background: var(--glass-bg); border: 1px solid ${isPaid ? 'var(--glass-border)' : 'rgba(255, 204, 0, 0.3)'}; padding: 1.5rem; border-radius: 16px; position: relative;">
                                     <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; border-radius: 4px 0 0 4px;"></div>
@@ -2198,12 +2199,12 @@ class NXAEngine {
                                         </div>
                                         
                                         <div style="text-align: right;">
-                                            <button onclick="${isPaid ? `AppState.setView('course_view_${c.id}')` : `NXA.showPaymentGateway('${c.id}', '${c.price}')`}" 
+                                            <button onclick="${isPaid ? `AppState.setView('course_view_${c.id}')` : `NXA.showPaymentGateway('${c.id}', '${coursePrice}')`}" 
                                                     class="btn-primary-lg" 
-                                                    style="padding: 10px 20px; font-size: 0.65rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; color: ${isPaid ? '#000' : '#000'}; border: none;">
+                                                    style="padding: 10px 20px; font-size: 0.65rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; color: #000; border: none;">
                                                 ${isPaid ? 'OPEN_UNIT' : `OPEN_UNIT 🔒`}
                                             </button>
-                                            ${!isPaid ? `<div style="font-size: 0.55rem; color: #ffcc00; font-weight: 900; margin-top: 4px; letter-spacing: 1px;">₹${c.price}</div>` : ''}
+                                            ${!isPaid ? `<div style="font-size: 0.55rem; color: #ffcc00; font-weight: 900; margin-top: 4px; letter-spacing: 1px;">₹${coursePrice}</div>` : ''}
                                         </div>
                                     </div>
                                 </div>
