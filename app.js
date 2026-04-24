@@ -1384,12 +1384,12 @@ class NXAEngine {
         const isStudent = state.role === 'student';
 
         DOM.root.innerHTML = `
-            <nav class="navbar" style="display: ${state.view === 'home' ? 'flex' : 'none'};">
+            <nav class="navbar" style="display: flex;">
                 <div class="nav-container">
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.8</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.9</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
