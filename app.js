@@ -238,6 +238,129 @@ window.NXAStopLive = async () => {
     AppState.setView('live');
 };
 
+window.NXAAnchorSession = async () => {
+    const time = document.getElementById('scheduled_time').value;
+    const data = { active: true, time, date: new Date().toDateString() };
+    localStorage.setItem('nxa_attendance_session', JSON.stringify(data));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'attendance_session', data);
+    }
+    AppState.setView('attendance');
+};
+
+window.NXAStopSession = async () => {
+    const data = { active: false };
+    localStorage.setItem('nxa_attendance_session', JSON.stringify(data));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'attendance_session', data);
+    }
+    AppState.setView('attendance');
+};
+
+window.NXAToggleScanner = (btn) => {
+    const ui = document.getElementById('adminScannerUI');
+    if (ui.style.display === 'none') {
+        if (typeof Html5Qrcode === 'undefined') {
+            alert('QR Scanner library not loaded. Check internet connection.');
+            return;
+        }
+        ui.style.display = 'block';
+        btn.innerText = '⛔ STOP SCANNER';
+        window.html5QrCode = new Html5Qrcode('scanner-container');
+        window.html5QrCode.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 240, height: 240 } },
+            async (decoded) => {
+                if (decoded.startsWith('ATT|') && decoded.endsWith('|NXA')) {
+                    const parts = decoded.split('|');
+                    const email = parts[1];
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const result = document.getElementById('scanner-result');
+                    result.innerText = '✅ MARKING: ' + email;
+                    
+                    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+                    if (!profiles[email]) profiles[email] = {};
+                    if (!profiles[email].attendance) profiles[email].attendance = {};
+                    profiles[email].attendance[todayStr] = true;
+                    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+                    if (typeof firebase !== 'undefined') {
+                        await Cloud.set('nxa_student_profiles', email, profiles[email]);
+                    }
+                    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+                    setTimeout(() => { result.innerText = '✅ ' + email + ' MARKED PRESENT'; }, 500);
+                } else {
+                    document.getElementById('scanner-result').innerText = '⚠️ Invalid QR';
+                }
+            }
+        ).catch(err => alert('Scanner error: ' + err));
+    } else {
+        if (window.html5QrCode) window.html5QrCode.stop().catch(() => {});
+        ui.style.display = 'none';
+        btn.innerText = '📷 ACTIVATE QR SCANNER';
+    }
+};
+
+window.NXASearchPunch = (term) => {
+    const punchList = document.getElementById('punch_student_list');
+    if (!punchList) return;
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    const students = Object.values(profiles);
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const filtered = students.filter(s =>
+        (s.fullname || '').toLowerCase().includes(term.toLowerCase()) ||
+        (s.usn || '').toLowerCase().includes(term.toLowerCase())
+    );
+    punchList.innerHTML = filtered.map(s => {
+        const att = (s.attendance || {});
+        const done = att[todayStr] === true;
+        return \`<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding: 8px 12px; border-radius:8px; border:1px solid var(--glass-border);">
+            <div>
+                <div style="font-size:0.65rem; color:#fff; font-weight:800;">\${s.fullname || s.email}</div>
+                <div style="font-size:0.45rem; color:var(--text-dim);">\${s.usn || s.email}</div>
+            </div>
+            <button onclick="window.NXA_ATT_PUNCH('\${s.email}', this)" style="background:\${done ? 'rgba(0,255,106,0.2)' : 'var(--accent-primary)'}; color:\${done ? '#00ff6a' : '#000'}; border:none; padding:5px 12px; border-radius:6px; font-size:0.5rem; font-weight:900; cursor:pointer;">
+                \${done ? '✓ PRESENT' : 'PUNCH'}
+            </button>
+        </div>\`;
+    }).join('');
+};
+
+window.NXA_ATT_PUNCH = async (email, btn) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    if (!profiles[email]) profiles[email] = {};
+    if (!profiles[email].attendance) profiles[email].attendance = {};
+    profiles[email].attendance[todayStr] = true;
+    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_student_profiles', email, profiles[email]);
+    }
+    btn.innerText = '✓ PRESENT';
+    btn.style.background = 'rgba(0,255,106,0.2)';
+    btn.style.color = '#00ff6a';
+    if (navigator.vibrate) navigator.vibrate(30);
+};
+
+window.NXAInitAttendance = (email) => {
+    // Wait for DOM to finish rendering
+    setTimeout(() => {
+        const qrEl = document.getElementById('qrcode');
+        if (qrEl && typeof QRCode !== 'undefined') {
+            qrEl.innerHTML = ''; // clear old
+            new QRCode(qrEl, {
+                text: \`ATT|\${email}|NXA\`,
+                width: 200, height: 200,
+                colorDark: '#000000', colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+        if (document.getElementById('student_punch_search')) {
+            window.NXASearchPunch('');
+        }
+    }, 100);
+};
+
 window.NXACreateCourse = async () => {
     const title = document.getElementById('new_c_title').value.trim();
     const domain = document.getElementById('new_c_domain').value.trim();
@@ -659,6 +782,10 @@ class NXAEngine {
                 return;
             }
             this.mountCore(state);
+            
+            if (state.view === 'attendance') {
+                window.NXAInitAttendance(state.user.email);
+            }
         } catch (error) {
             console.error('NXA_CORE_ERROR:', error);
             if (DOM.root) {
@@ -1260,14 +1387,14 @@ class NXAEngine {
                     <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; letter-spacing: 2px; color: var(--accent-primary);">⚓ SESSION ANCHOR</h3>
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
                         <input id="scheduled_time" type="time" value="${session.time || '10:00'}" style="flex:1; padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.5); color: #fff; font-size: 0.9rem;">
-                        <button id="anchorSession" style="background: var(--accent-primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">ANCHOR</button>
-                        ${session.active ? `<button id="stopSession" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid #ff4545; padding: 10px 16px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">STOP</button>` : ''}
+                        <button onclick="window.NXAAnchorSession()" style="background: var(--accent-primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">ANCHOR</button>
+                        ${session.active ? `<button onclick="window.NXAStopSession()" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid #ff4545; padding: 10px 16px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">STOP</button>` : ''}
                     </div>
                     <p style="font-size: 0.45rem; color: var(--text-dim); text-transform: uppercase;">QR window: 15 min before → 30 min after session time</p>
 
                     <!-- QR SCANNER -->
                     <div style="margin-top: 1rem; border-top: 1px dashed var(--glass-border); padding-top: 1rem;">
-                        <button id="toggleScanner" style="width:100%; background: rgba(0,242,255,0.07); border: 1px solid var(--accent-primary); color: var(--accent-primary); padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">📷 ACTIVATE QR SCANNER</button>
+                        <button id="toggleScanner" onclick="window.NXAToggleScanner(this)" style="width:100%; background: rgba(0,242,255,0.07); border: 1px solid var(--accent-primary); color: var(--accent-primary); padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">📷 ACTIVATE QR SCANNER</button>
                         <div id="adminScannerUI" style="display:none; margin-top: 1rem;">
                             <div id="scanner-container" style="width:100%; max-width:300px; margin: 0 auto; border-radius: 12px; overflow:hidden; border: 2px solid var(--accent-primary);"></div>
                             <div id="scanner-result" style="text-align:center; margin-top: 10px; font-size: 0.65rem; color: #00ff6a; min-height: 20px;"></div>
@@ -1277,7 +1404,7 @@ class NXAEngine {
                     <!-- MANUAL PUNCH LIST -->
                     <div style="margin-top: 1rem; border-top: 1px dashed var(--glass-border); padding-top: 1rem;">
                         <h4 style="margin: 0 0 0.8rem 0; font-size: 0.6rem; color: var(--text-dim); letter-spacing: 1px;">✋ MANUAL PUNCH</h4>
-                        <input id="student_punch_search" type="text" placeholder="Search by name or USN..." style="width:100%; padding: 9px 12px; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; font-size: 0.7rem; margin-bottom: 10px; box-sizing: border-box;">
+                        <input id="student_punch_search" oninput="window.NXASearchPunch(this.value)" type="text" placeholder="Search by name or USN..." style="width:100%; padding: 9px 12px; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; font-size: 0.7rem; margin-bottom: 10px; box-sizing: border-box;">
                         <div id="punch_student_list" style="max-height: 220px; overflow-y: auto; display: grid; gap: 6px;"></div>
                     </div>
                 </div>` : ''}
@@ -1325,139 +1452,6 @@ class NXAEngine {
                     </div>
                 </div>
             </section>
-            <script>
-            setTimeout(() => {
-                // ── QR Code generation for student ──
-                const qrEl = document.getElementById('qrcode');
-                if (qrEl && typeof QRCode !== 'undefined') {
-                    new QRCode(qrEl, {
-                        text: 'ATT|${state.user.email}|NXA',
-                        width: 200, height: 200,
-                        colorDark: '#000000', colorLight: '#ffffff',
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                }
-
-                // ── Admin: Anchor session ──
-                const anchorBtn = document.getElementById('anchorSession');
-                if (anchorBtn) anchorBtn.onclick = async () => {
-                    const time = document.getElementById('scheduled_time').value;
-                    const data = { active: true, time, date: new Date().toDateString() };
-                    localStorage.setItem('nxa_attendance_session', JSON.stringify(data));
-                    if (typeof firebase !== 'undefined') {
-                        await Cloud.set('nxa_broadcasts', 'attendance_session', data);
-                    }
-                    AppState.setView('attendance');
-                };
-
-                // ── Admin: Stop session ──
-                const stopBtn = document.getElementById('stopSession');
-                if (stopBtn) stopBtn.onclick = async () => {
-                    const data = { active: false };
-                    localStorage.setItem('nxa_attendance_session', JSON.stringify(data));
-                    if (typeof firebase !== 'undefined') {
-                        await Cloud.set('nxa_broadcasts', 'attendance_session', data);
-                    }
-                    AppState.setView('attendance');
-                };
-
-                // ── Admin: Manual punch ──
-                const searchInput = document.getElementById('student_punch_search');
-                if (searchInput) {
-                    const punchList = document.getElementById('punch_student_list');
-                    const profiles  = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                    const students  = Object.values(profiles);
-                    const todayStr  = new Date().toISOString().split('T')[0];
-
-                    const renderPunch = (term = '') => {
-                        const filtered = students.filter(s =>
-                            s.fullname?.toLowerCase().includes(term.toLowerCase()) ||
-                            s.usn?.toLowerCase().includes(term.toLowerCase())
-                        );
-                        punchList.innerHTML = filtered.map(s => {
-                            const att = (s.attendance || {});
-                            const done = att[todayStr] === true;
-                            return \`<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding: 8px 12px; border-radius:8px; border:1px solid var(--glass-border);">
-                                <div>
-                                    <div style="font-size:0.65rem; color:#fff; font-weight:800;">\${s.fullname}</div>
-                                    <div style="font-size:0.45rem; color:var(--text-dim);">\${s.usn || s.email}</div>
-                                </div>
-                                <button onclick="window.NXA_ATT.punch('\${s.email}', this)" style="background:\${done ? 'rgba(0,255,106,0.2)' : 'var(--accent-primary)'}; color:\${done ? '#00ff6a' : '#000'}; border:none; padding:5px 12px; border-radius:6px; font-size:0.5rem; font-weight:900; cursor:pointer;">
-                                    \${done ? '✓ PRESENT' : 'PUNCH'}
-                                </button>
-                            </div>\`;
-                        }).join('');
-                    };
-
-                    window.NXA_ATT = {
-                        punch: async (email, btn) => {
-                            const todayStr = new Date().toISOString().split('T')[0];
-                            const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                            if (!profiles[email]) profiles[email] = {};
-                            if (!profiles[email].attendance) profiles[email].attendance = {};
-                            profiles[email].attendance[todayStr] = true;
-                            localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-                            if (typeof firebase !== 'undefined') {
-                                await Cloud.set('nxa_student_profiles', email, profiles[email]);
-                            }
-                            btn.innerText = '✓ PRESENT';
-                            btn.style.background = 'rgba(0,255,106,0.2)';
-                            btn.style.color = '#00ff6a';
-                            if (navigator.vibrate) navigator.vibrate(30);
-                        }
-                    };
-
-                    searchInput.oninput = (e) => renderPunch(e.target.value);
-                    renderPunch();
-                }
-
-                // ── Admin: QR Scanner ──
-                let html5QrCode;
-                const toggleBtn = document.getElementById('toggleScanner');
-                if (toggleBtn) toggleBtn.onclick = () => {
-                    const ui = document.getElementById('adminScannerUI');
-                    if (ui.style.display === 'none') {
-                        if (typeof Html5Qrcode === 'undefined') {
-                            alert('QR Scanner library not loaded. Check internet connection.');
-                            return;
-                        }
-                        ui.style.display = 'block';
-                        toggleBtn.innerText = '⛔ STOP SCANNER';
-                        html5QrCode = new Html5Qrcode('scanner-container');
-                        html5QrCode.start(
-                            { facingMode: 'environment' },
-                            { fps: 10, qrbox: { width: 240, height: 240 } },
-                            async (decoded) => {
-                                if (decoded.startsWith('ATT|') && decoded.endsWith('|NXA')) {
-                                    const parts = decoded.split('|');
-                                    const email = parts[1];
-                                    const todayStr = new Date().toISOString().split('T')[0];
-                                    const result = document.getElementById('scanner-result');
-                                    result.innerText = '✅ MARKING: ' + email;
-                                    // Save to profiles
-                                    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                                    if (!profiles[email]) profiles[email] = {};
-                                    if (!profiles[email].attendance) profiles[email].attendance = {};
-                                    profiles[email].attendance[todayStr] = true;
-                                    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-                                    if (typeof firebase !== 'undefined') {
-                                        await Cloud.set('nxa_student_profiles', email, profiles[email]);
-                                    }
-                                    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-                                    setTimeout(() => { result.innerText = '✅ ' + email + ' MARKED PRESENT'; }, 500);
-                                } else {
-                                    document.getElementById('scanner-result').innerText = '⚠️ Invalid QR';
-                                }
-                            }
-                        ).catch(err => alert('Scanner error: ' + err));
-                    } else {
-                        if (html5QrCode) html5QrCode.stop().catch(() => {});
-                        ui.style.display = 'none';
-                        toggleBtn.innerText = '📷 ACTIVATE QR SCANNER';
-                    }
-                };
-            }, 300);
-            </script>
         `;
     }
     viewProjects(state) {
