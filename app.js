@@ -607,20 +607,27 @@ window.NXAUploadQR = (input) => {
 };
 
 window.NXAFastSetPrice = async (id, price) => {
-    if(!price || isNaN(price)) return alert('Invalid Price');
-    const courses = window.NXA.getCourses();
-    const idx = courses.findIndex(c => c.id === id);
-    if(idx === -1) return;
-    courses[idx].price = String(price);
-    window.NXA.saveCourses(courses);
-    
-    // SYNC TO CLOUD
-    if (typeof firebase !== 'undefined') {
-        await Cloud.set('nxa_broadcasts', 'course_matrix', { list: courses });
+    if(!price || isNaN(price)) return alert('ERROR: Invalid Price format.');
+    try {
+        const courses = window.NXA.getCourses();
+        const idx = courses.findIndex(c => c.id === id);
+        if(idx === -1) return;
+        
+        courses[idx].price = String(price);
+        window.NXA.saveCourses(courses);
+        
+        // GLOBAL BROADCAST
+        if (typeof firebase !== 'undefined') {
+            await firebase.firestore().collection('nxa_broadcasts').doc('course_matrix').set({ list: courses }, { merge: true });
+        }
+        
+        alert(`✅ PRICE_MANIFESTED: ₹${price} is now LIVE for ${courses[idx].title}.`);
+        window.NXA_LAST_SAVED_ID = id; // For UI feedback
+        AppState.render(AppState);
+    } catch (e) {
+        console.error(e);
+        alert('CLOUD_SYNC_FAILED: Please check your internet connection.');
     }
-    
-    alert(`METADATA_SYNC_SUCCESS: Price updated to ₹${price} for ${courses[idx].title}`);
-    AppState.render(AppState);
 };
 
 window.NXASaveCourseMeta = async (id) => {
@@ -1382,7 +1389,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.7</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.8</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2520,6 +2527,7 @@ class NXAEngine {
                                         <div style="font-size: 0.5rem; color: var(--text-dim);">PRICE: ₹</div>
                                         <input type="number" id="fast_price_${c.id}" value="${c.price || '999'}" style="width: 60px; height: 24px; font-size: 0.7rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #ffcc00; text-align: center; border-radius: 4px; font-weight: 900;">
                                         <button onclick="window.NXAFastSetPrice('${c.id}', document.getElementById('fast_price_${c.id}').value)" style="background: var(--accent-primary); color: #000; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">SET</button>
+                                        ${window.NXA_LAST_SAVED_ID === c.id ? `<span style="font-size: 0.5rem; color: #00ff6a; font-weight: 900;">✓ LIVE</span>` : ''}
                                         <span style="font-size: 0.5rem; color: var(--text-dim); margin-left: auto;">ID: ${c.id}</span>
                                     </div>
                                 </div>
