@@ -606,14 +606,20 @@ window.NXAUploadQR = (input) => {
     reader.readAsDataURL(file);
 };
 
-window.NXAFastSetPrice = (id, price) => {
+window.NXAFastSetPrice = async (id, price) => {
     if(!price || isNaN(price)) return alert('Invalid Price');
     const courses = window.NXA.getCourses();
     const idx = courses.findIndex(c => c.id === id);
     if(idx === -1) return;
     courses[idx].price = String(price);
     window.NXA.saveCourses(courses);
-    alert(`Price updated to ₹${price} for ${courses[idx].title}`);
+    
+    // SYNC TO CLOUD
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'course_matrix', { list: courses });
+    }
+    
+    alert(`METADATA_SYNC_SUCCESS: Price updated to ₹${price} for ${courses[idx].title}`);
     AppState.render(AppState);
 };
 
@@ -630,6 +636,12 @@ window.NXASaveCourseMeta = (id) => {
 
     courses[idx] = { ...courses[idx], title, domain, price };
     window.NXA.saveCourses(courses);
+    
+    // SYNC TO CLOUD
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'course_matrix', { list: courses });
+    }
+
     alert('METADATA_SYNC_SUCCESS');
     AppState.setView('course_admin');
 };
@@ -1337,7 +1349,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.1</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.2</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
