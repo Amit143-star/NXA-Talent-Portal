@@ -529,8 +529,24 @@ window.NXAConfirmPayment = async (courseId) => {
     
     profiles[AppState.user.email] = s;
     localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+    
+    // LOG TRANSACTION FOR ADMIN OVERSIGHT
+    const logs = JSON.parse(localStorage.getItem('nxa_payment_logs')) || [];
+    const courses = window.NXA.getCourses();
+    const course = courses.find(c => c.id === courseId);
+    logs.unshift({
+        email: AppState.user.email,
+        courseId: courseId,
+        courseTitle: course ? course.title : 'Unknown',
+        price: course ? course.price : '999',
+        timestamp: new Date().toISOString()
+    });
+    const limitedLogs = logs.slice(0, 50);
+    localStorage.setItem('nxa_payment_logs', JSON.stringify(limitedLogs));
+
     if (typeof firebase !== 'undefined') {
         await Cloud.set('nxa_student_profiles', AppState.user.email, s);
+        await Cloud.set('nxa_broadcasts', 'payment_logs', { list: limitedLogs });
     }
     
     alert('PAYMENT_MANIFEST_SUCCESS: Course Node Unlocked.');
@@ -1310,7 +1326,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.9</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.0</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2390,6 +2406,24 @@ class NXAEngine {
                         </div>
                     </div>
                     <button onclick="window.NXASetPaymentConfig()" style="width: 100%; margin-top: 1.5rem; background: var(--accent-primary); color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; cursor: pointer;">INITIALIZE_UPLINK</button>
+                </div>
+
+                <!-- TRANSACTION LEDGER -->
+                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 20px; margin-bottom: 2rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; letter-spacing: 2px; color: var(--accent-primary);">TRANSACTION_LEDGER (LATEST_50)</h3>
+                    <div style="max-height: 200px; overflow-y: auto; display: grid; gap: 8px;">
+                        ${(JSON.parse(localStorage.getItem('nxa_payment_logs')) || []).length === 0 ? `<div style="font-size: 0.6rem; color: var(--text-dim); text-align: center;">No transactions logged yet.</div>` : ''}
+                        ${(JSON.parse(localStorage.getItem('nxa_payment_logs')) || []).map(log => `
+                            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); font-size: 0.55rem;">
+                                <div style="display: flex; justify-content: space-between; color: var(--accent-primary); font-weight: 900; margin-bottom: 4px;">
+                                    <span>${log.email}</span>
+                                    <span>₹${log.price}</span>
+                                </div>
+                                <div style="color: #fff;">ENROLLED: ${log.courseTitle}</div>
+                                <div style="font-size: 0.45rem; color: var(--text-dim); margin-top: 4px;">${new Date(log.timestamp).toLocaleString()}</div>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
