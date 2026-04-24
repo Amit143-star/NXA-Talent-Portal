@@ -575,6 +575,21 @@ window.NXADeleteCourse = async (id) => {
     AppState.setView('course_admin');
 };
 
+window.NXAUploadQR = (input) => {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const base64 = e.target.result;
+        const config = JSON.parse(localStorage.getItem('nxa_payment_config')) || { upi: '' };
+        config.qr = base64;
+        localStorage.setItem('nxa_payment_config', JSON.stringify(config));
+        alert('QR_GALLERY_BUFFERED: Click INITIALIZE_UPLINK to save permanently.');
+        AppState.render(AppState);
+    };
+    reader.readAsDataURL(file);
+};
+
 window.NXASaveCourseMeta = (id) => {
     const title = document.getElementById('edit_c_title').value.trim();
     const domain = document.getElementById('edit_c_domain').value.trim();
@@ -1295,7 +1310,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.8</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.9</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2365,10 +2380,16 @@ class NXAEngine {
                     <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; letter-spacing: 2px; color: var(--accent-primary);">GATEWAY_UPLINK</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div class="input-block"><label style="font-size: 0.5rem;">UPI_ID</label><input id="nxa_pay_upi" type="text" value="${payConfig.upi}" placeholder="e.g. nxa@ybl" style="padding: 10px; font-size: 0.8rem;"></div>
-                        <div class="input-block"><label style="font-size: 0.5rem;">QR_CODE_UPLINK</label><input id="nxa_pay_qr" type="text" value="${payConfig.qr}" placeholder="https://..." style="padding: 10px; font-size: 0.8rem;"></div>
+                        <div class="input-block" style="grid-column: span 2;">
+                            <label style="font-size: 0.5rem;">QR_CODE_UPLOAD (FROM GALLERY)</label>
+                            <input type="file" id="nxa_qr_file" accept="image/*" style="display:none;" onchange="window.NXAUploadQR(this)">
+                            <button onclick="document.getElementById('nxa_qr_file').click()" style="width:100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px dashed var(--glass-border); border-radius: 8px; color: #fff; font-size: 0.7rem; cursor: pointer;">
+                                ${payConfig.qr ? '🔄 REPLACE_GALLERY_QR' : '📤 UPLOAD_FROM_GALLERY'}
+                            </button>
+                            ${payConfig.qr ? `<div style="margin-top:10px; font-size: 0.5rem; color: #00ff6a;">✓ GALLERY_QR_MANIFESTED</div>` : ''}
+                        </div>
                     </div>
                     <button onclick="window.NXASetPaymentConfig()" style="width: 100%; margin-top: 1.5rem; background: var(--accent-primary); color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; cursor: pointer;">INITIALIZE_UPLINK</button>
-                    <p style="font-size: 0.45rem; color: var(--text-dim); margin-top: 10px; text-align: center;">Note: Prices are now managed individually per course module below.</p>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
