@@ -607,6 +607,14 @@ class NXAEngine {
                 }
             }
         });
+
+        // SYNC ATTENDANCE SESSION (so students see QR window when admin starts)
+        firebase.firestore().collection('nxa_broadcasts').doc('attendance_session').onSnapshot(doc => {
+            if (doc.exists) {
+                localStorage.setItem('nxa_attendance_session', JSON.stringify(doc.data()));
+                if (AppState.view === 'attendance') this.render(AppState);
+            }
+        });
     }
 
     async handleDossierTermination(email) {
@@ -1211,224 +1219,247 @@ class NXAEngine {
 
     viewAttendance(state) {
         const isAdmin = state.role === 'admin' || state.user.email === 'nxasupertalent@gmail.com';
-        const session = JSON.parse(localStorage.getItem('nxa_attendance_session')) || { active: false };
-        const myAttendance = JSON.parse(localStorage.getItem(`nxa_att_${state.user.email}`)) || {};
-        
-        // Window Calculation logic
+        const session  = JSON.parse(localStorage.getItem('nxa_attendance_session')) || { active: false };
+        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+        const myProfile = profiles[state.user.email] || {};
+        const myAttendance = myProfile.attendance || {};
+
         const now = new Date();
-        const checkWindow = () => {
-            if(!session.active) return false;
+        const todayStr = now.toISOString().split('T')[0];
+        const monthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const monthLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' }).toUpperCase();
+
+        // Check if attendance window is open
+        const isWindowActive = (() => {
+            if (!session.active || !session.time) return false;
             const [h, m] = session.time.split(':');
             const target = new Date();
             target.setHours(parseInt(h), parseInt(m), 0, 0);
-            
             const diffInMin = (now - target) / (1000 * 60);
             return diffInMin >= -15 && diffInMin <= 30;
-        };
-        const isWindowActive = checkWindow();
+        })();
+
+        const alreadyMarked = myAttendance[todayStr] === true;
 
         return `
-            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; display: flex; flex-direction: column;">
+            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; padding-bottom: 120px;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
                     <div>
                         <h2 style="font-family: var(--font-heading); font-size: 1.3rem; margin: 0; letter-spacing: 2px;">ATTENDANCE_NEXUS</h2>
-                        <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 800;">STATUS: ${isWindowActive ? 'WINDOW_OPEN' : 'IDLE'}</span>
+                        <span style="color: ${isWindowActive ? '#00ff6a' : 'var(--text-dim)'}; font-size: 0.55rem; font-weight: 800;">
+                            ${isWindowActive ? '🟢 SESSION ACTIVE' : '⚫ STANDBY'}
+                            ${session.time ? ' · ' + session.time : ''}
+                        </span>
                     </div>
-                    <div style="text-align: right; color: var(--text-dim); font-size: 0.5rem; font-weight: 800;">
-                        ${now.toDateString().toUpperCase()}
-                    </div>
+                    <div style="text-align: right; color: var(--text-dim); font-size: 0.5rem; font-weight: 800;">${now.toDateString().toUpperCase()}</div>
                 </div>
 
                 ${isAdmin ? `
-                    <!-- ADMIN SESSION ANCHORING -->
-                    <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--accent-primary); margin-bottom: 1.5rem;">
-                        <h3 style="margin: 0 0 1rem 0; font-size: 0.8rem; letter-spacing: 1px; color: var(--accent-primary);">SESSION_ANCHORING</h3>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <input id="scheduled_time" type="time" value="${session.time || '12:15'}" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.5); color: #fff; font-size: 0.9rem;">
-                            <button id="anchorSession" style="background: var(--accent-primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">ANCHOR</button>
-                        </div>
-                        <p style="font-size: 0.45rem; color: var(--text-dim); margin-top: 8px; text-transform: uppercase;">QR will activate 15m before and terminate 30m after.</p>
-                        
-                        <div id="adminScannerUI" style="display: none; margin-top: 1.5rem; border-top: 1px dashed var(--glass-border); padding-top: 1.5rem;">
-                            <div id="scanner-container" style="width: 100%; max-width: 300px; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 2px solid var(--accent-primary);"></div>
-                            <div id="scanner-result" style="text-align: center; margin-top: 10px; font-size: 0.6rem; color: #00ff6a;"></div>
-                        </div>
-                        <button id="toggleScanner" style="width: 100%; margin-top: 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.6rem; font-weight: 800; cursor: pointer;">ACTIVATE_SCANNER</button>
+                <!-- ═══ ADMIN PANEL ═══ -->
+                <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--accent-primary); margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; letter-spacing: 2px; color: var(--accent-primary);">⚓ SESSION ANCHOR</h3>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                        <input id="scheduled_time" type="time" value="${session.time || '10:00'}" style="flex:1; padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.5); color: #fff; font-size: 0.9rem;">
+                        <button id="anchorSession" style="background: var(--accent-primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">ANCHOR</button>
+                        ${session.active ? `<button id="stopSession" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid #ff4545; padding: 10px 16px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">STOP</button>` : ''}
+                    </div>
+                    <p style="font-size: 0.45rem; color: var(--text-dim); text-transform: uppercase;">QR window: 15 min before → 30 min after session time</p>
 
-                        <!-- SEARCHABLE MANUAL PUNCH LIST -->
-                        <div style="margin-top: 1.5rem; border-top: 1px dashed var(--glass-border); padding-top: 1.5rem;">
-                            <h4 style="margin: 0 0 1rem 0; font-size: 0.6rem; color: var(--text-dim); letter-spacing: 1px;">MANUAL_MANIFEST_OVERRIDE</h4>
-                            <input id="student_punch_search" type="text" placeholder="SEARCH_BY_NAME_OR_USN..." style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; font-size: 0.7rem; margin-bottom: 1rem;">
-                            <div id="punch_student_list" style="max-height: 200px; overflow-y: auto; display: grid; gap: 8px; scrollbar-width: thin;"></div>
+                    <!-- QR SCANNER -->
+                    <div style="margin-top: 1rem; border-top: 1px dashed var(--glass-border); padding-top: 1rem;">
+                        <button id="toggleScanner" style="width:100%; background: rgba(0,242,255,0.07); border: 1px solid var(--accent-primary); color: var(--accent-primary); padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">📷 ACTIVATE QR SCANNER</button>
+                        <div id="adminScannerUI" style="display:none; margin-top: 1rem;">
+                            <div id="scanner-container" style="width:100%; max-width:300px; margin: 0 auto; border-radius: 12px; overflow:hidden; border: 2px solid var(--accent-primary);"></div>
+                            <div id="scanner-result" style="text-align:center; margin-top: 10px; font-size: 0.65rem; color: #00ff6a; min-height: 20px;"></div>
                         </div>
                     </div>
-                ` : ''}
 
-                <!-- STUDENT ATTENDANCE INTERFACE -->
-                <div id="attendance_display" style="flex: 1;">
-                    ${isWindowActive && !isAdmin ? `
-                        <div style="background: white; padding: 1.5rem; border-radius: 24px; text-align: center; margin-bottom: 2rem; box-shadow: 0 0 40px rgba(0,242,255,0.2);">
-                            <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 1rem;"></div>
-                            <p style="color: #000; font-weight: 900; font-size: 0.6rem; letter-spacing: 1px;">SHOW_TO_ADMIN_SCANNER</p>
-                            <span style="color: #666; font-size: 0.5rem;">TOKEN_SECURE: ${state.user.email}</span>
+                    <!-- MANUAL PUNCH LIST -->
+                    <div style="margin-top: 1rem; border-top: 1px dashed var(--glass-border); padding-top: 1rem;">
+                        <h4 style="margin: 0 0 0.8rem 0; font-size: 0.6rem; color: var(--text-dim); letter-spacing: 1px;">✋ MANUAL PUNCH</h4>
+                        <input id="student_punch_search" type="text" placeholder="Search by name or USN..." style="width:100%; padding: 9px 12px; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; font-size: 0.7rem; margin-bottom: 10px; box-sizing: border-box;">
+                        <div id="punch_student_list" style="max-height: 220px; overflow-y: auto; display: grid; gap: 6px;"></div>
+                    </div>
+                </div>` : ''}
+
+                <!-- ═══ STUDENT QR PANEL ═══ -->
+                ${!isAdmin ? `
+                <div style="margin-bottom: 1.5rem;">
+                    ${isWindowActive && !alreadyMarked ? `
+                        <div style="background: white; padding: 1.5rem; border-radius: 20px; text-align: center; box-shadow: 0 0 40px rgba(0,242,255,0.25);">
+                            <p style="color: #000; font-size: 0.55rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 1rem;">SHOW THIS TO ADMIN SCANNER</p>
+                            <div id="qrcode" style="display:flex; justify-content:center; margin-bottom: 1rem;"></div>
+                            <span style="color: #666; font-size: 0.45rem;">${state.user.email}</span>
+                        </div>
+                    ` : alreadyMarked ? `
+                        <div style="background: rgba(0,255,106,0.07); border: 1px solid #00ff6a; border-radius: 20px; padding: 2rem; text-align: center;">
+                            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">✅</div>
+                            <h3 style="color: #00ff6a; font-size: 1rem; margin: 0;">PRESENT TODAY</h3>
+                            <p style="color: var(--text-dim); font-size: 0.6rem; margin-top: 5px;">${todayStr}</p>
                         </div>
                     ` : `
-                        ${!isAdmin ? `
-                             <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 20px; padding: 2.5rem; text-align: center; margin-bottom: 2rem;">
-                                <div style="font-size: 2.5rem; opacity: 0.1; margin-bottom: 10px;">🌑</div>
-                                <h4 style="color: var(--text-dim); font-size: 0.8rem;">No Active Temporal Window</h4>
-                                <p style="font-size: 0.55rem; color: var(--text-dim); margin-top: 5px;">Awaiting session anchor by Admin Command.</p>
-                            </div>
-                        ` : ''}
+                        <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--glass-border); border-radius: 20px; padding: 2.5rem; text-align: center;">
+                            <div style="font-size: 2.5rem; opacity: 0.2; margin-bottom: 10px;">🌑</div>
+                            <h4 style="color: var(--text-dim); font-size: 0.8rem;">No Active Session</h4>
+                            <p style="font-size: 0.55rem; color: var(--text-dim); margin-top: 5px;">Admin hasn't started attendance yet.</p>
+                        </div>
                     `}
+                </div>` : ''}
 
-                    <!-- MONTHLY MANIFEST CALENDAR -->
-                    <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 24px; border: 1px solid var(--glass-border);">
-                        <h4 style="margin: 0 0 1.2rem 0; font-size: 0.65rem; letter-spacing: 2px; color: var(--text-dim);">MONTHLY_MANIFEST</h4>
-                        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;">
-                            ${Array.from({length: 30}, (_, i) => {
-                                const day = i + 1;
-                                const dateStr = `2026-04-${day.toString().padStart(2, '0')}`;
-                                const isPresent = myAttendance[dateStr] === true;
-                                const isToday = day === now.getDate();
-                                return `
-                                    <div style="aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: ${isPresent ? 'rgba(0, 255, 106, 0.1)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${isToday ? 'var(--accent-primary)' : (isPresent ? '#00ff6a' : 'var(--glass-border)')}; border-radius: 8px; font-size: 0.7rem; font-weight: 700; color: ${isPresent ? '#00ff6a' : '#fff'};">
-                                        ${day}
-                                        ${isPresent ? '<div style="position:absolute; width:4px; height:4px; background:#00ff6a; border-radius:50%; bottom:2px;"></div>' : ''}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                        <div style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 15px;">
-                            <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 8px; height: 8px; background: #00ff6a; border-radius: 50%;"></div><span style="font-size: 0.5rem; color: var(--text-dim);">PRESENT</span></div>
-                            <div style="display: flex; align-items: center; gap: 5px;"><div style="width: 8px; height: 8px; background: #ff4545; border-radius: 50%;"></div><span style="font-size: 0.5rem; color: var(--text-dim);">ABSENT</span></div>
-                        </div>
+                <!-- ═══ MONTHLY CALENDAR ═══ -->
+                <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--glass-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4 style="margin: 0; font-size: 0.65rem; letter-spacing: 2px; color: var(--text-dim);">${monthLabel}</h4>
+                        <span style="font-size: 0.55rem; color: var(--accent-primary); font-weight: 800;">
+                            ${Object.values(myAttendance).filter(Boolean).length}/${monthDays} DAYS
+                        </span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">
+                        ${Array.from({length: monthDays}, (_, i) => {
+                            const day = i + 1;
+                            const d = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                            const isPresent = myAttendance[d] === true;
+                            const isToday   = d === todayStr;
+                            return `<div style="aspect-ratio:1; display:flex; align-items:center; justify-content:center; background:${isPresent ? 'rgba(0,255,106,0.1)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${isToday ? 'var(--accent-primary)' : isPresent ? '#00ff6a' : 'var(--glass-border)'}; border-radius: 6px; font-size: 0.65rem; font-weight: 700; color: ${isPresent ? '#00ff6a' : isToday ? 'var(--accent-primary)' : '#fff'};">${day}</div>`;
+                        }).join('')}
                     </div>
                 </div>
             </section>
             <script>
-                setTimeout(() => {
-                    // QR Generation for Students
-                    const qrEl = document.getElementById('qrcode');
-                    if(qrEl) {
-                        if (typeof QRCode !== 'undefined') {
-                            new QRCode(qrEl, {
-                                text: "ATT_${state.user.email}_NXA",
-                                width: 180,
-                                height: 180,
-                                colorDark : "#000000",
-                                colorLight : "#ffffff",
-                                correctLevel : QRCode.CorrectLevel.H
-                            });
-                        } else {
-                            qrEl.innerHTML = '<p style="color:var(--text-dim);font-size:0.6rem;padding:20px;border:1px dashed var(--glass-border);border-radius:12px;">QR_ENGINE_OFFLINE<br><span style="font-size:0.4rem;">Script load failed or blocked.</span></p>';
-                        }
+            setTimeout(() => {
+                // ── QR Code generation for student ──
+                const qrEl = document.getElementById('qrcode');
+                if (qrEl && typeof QRCode !== 'undefined') {
+                    new QRCode(qrEl, {
+                        text: 'ATT|${state.user.email}|NXA',
+                        width: 200, height: 200,
+                        colorDark: '#000000', colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }
+
+                // ── Admin: Anchor session ──
+                const anchorBtn = document.getElementById('anchorSession');
+                if (anchorBtn) anchorBtn.onclick = async () => {
+                    const time = document.getElementById('scheduled_time').value;
+                    const data = { active: true, time, date: new Date().toDateString() };
+                    localStorage.setItem('nxa_attendance_session', JSON.stringify(data));
+                    if (typeof firebase !== 'undefined') {
+                        await Cloud.set('nxa_broadcasts', 'attendance_session', data);
                     }
+                    AppState.setView('attendance');
+                };
 
-                    // Manual Punch Search & Logic for Admin
-                    const searchInput = document.getElementById('student_punch_search');
-                    if(searchInput) {
-                        const punchList = document.getElementById('punch_student_list');
-                        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                        const students = Object.values(profiles);
-                        const dateStr = new Date().toISOString().split('T')[0];
-
-                        const renderList = (term = '') => {
-                            const filtered = students.filter(s => 
-                                s.fullname?.toLowerCase().includes(term.toLowerCase()) || 
-                                s.usn?.toLowerCase().includes(term.toLowerCase())
-                            );
-                            punchList.innerHTML = filtered.map(s => {
-                                const attKey = \`nxa_att_\${s.email}\`;
-                                const attRecord = JSON.parse(localStorage.getItem(attKey)) || {};
-                                const isPresent = attRecord[dateStr] === true;
-                                return \`
-                                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--glass-border);">
-                                        <div style="flex: 1;">
-                                            <div style="font-size: 0.65rem; color: #fff; font-weight: 800;">\${s.fullname}</div>
-                                            <div style="font-size: 0.45rem; color: var(--text-dim);">\${s.usn || 'NO_USN'}</div>
-                                        </div>
-                                        <button onclick="window.NXA_ATT.manualPunch('\${s.email}', this)" style="background: \${isPresent ? '#00ff66' : 'var(--accent-primary)'}; color: #000; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.5rem; font-weight: 900; opacity: \${isPresent ? '0.5' : '1'};">
-                                            \${isPresent ? 'PRESENT' : 'PUNCH NOW'}
-                                        </button>
-                                    </div>
-                                \`;
-                            }).join('');
-                        };
-
-                        window.NXA_ATT = {
-                            manualPunch: (email, btn) => {
-                                const attKey = \`nxa_att_\${email}\`;
-                                const attRecord = JSON.parse(localStorage.getItem(attKey)) || {};
-                                attRecord[dateStr] = true;
-                                localStorage.setItem(attKey, JSON.stringify(attRecord));
-                                btn.innerText = 'PRESENT';
-                                btn.style.background = '#00ff66';
-                                btn.style.opacity = '0.5';
-                                if (navigator.vibrate) navigator.vibrate(20);
-                            }
-                        };
-
-                        searchInput.oninput = (e) => renderList(e.target.value);
-                        renderList(); // Initial Manifest
+                // ── Admin: Stop session ──
+                const stopBtn = document.getElementById('stopSession');
+                if (stopBtn) stopBtn.onclick = async () => {
+                    const data = { active: false };
+                    localStorage.setItem('nxa_attendance_session', JSON.stringify(data));
+                    if (typeof firebase !== 'undefined') {
+                        await Cloud.set('nxa_broadcasts', 'attendance_session', data);
                     }
+                    AppState.setView('attendance');
+                };
 
-                    // Admin Logic
-                    const anchorBtn = document.getElementById('anchorSession');
-                    if(anchorBtn) anchorBtn.onclick = () => {
-                        const time = document.getElementById('scheduled_time').value;
-                        localStorage.setItem('nxa_attendance_session', JSON.stringify({ active: true, time, date: new Date().toDateString() }));
-                        AppState.setView('attendance');
+                // ── Admin: Manual punch ──
+                const searchInput = document.getElementById('student_punch_search');
+                if (searchInput) {
+                    const punchList = document.getElementById('punch_student_list');
+                    const profiles  = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+                    const students  = Object.values(profiles);
+                    const todayStr  = new Date().toISOString().split('T')[0];
+
+                    const renderPunch = (term = '') => {
+                        const filtered = students.filter(s =>
+                            s.fullname?.toLowerCase().includes(term.toLowerCase()) ||
+                            s.usn?.toLowerCase().includes(term.toLowerCase())
+                        );
+                        punchList.innerHTML = filtered.map(s => {
+                            const att = (s.attendance || {});
+                            const done = att[todayStr] === true;
+                            return \`<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding: 8px 12px; border-radius:8px; border:1px solid var(--glass-border);">
+                                <div>
+                                    <div style="font-size:0.65rem; color:#fff; font-weight:800;">\${s.fullname}</div>
+                                    <div style="font-size:0.45rem; color:var(--text-dim);">\${s.usn || s.email}</div>
+                                </div>
+                                <button onclick="window.NXA_ATT.punch('\${s.email}', this)" style="background:\${done ? 'rgba(0,255,106,0.2)' : 'var(--accent-primary)'}; color:\${done ? '#00ff6a' : '#000'}; border:none; padding:5px 12px; border-radius:6px; font-size:0.5rem; font-weight:900; cursor:pointer;">
+                                    \${done ? '✓ PRESENT' : 'PUNCH'}
+                                </button>
+                            </div>\`;
+                        }).join('');
                     };
 
-                    // Scanner Logic for Admin
-                    let html5QrCode;
-                    const toggleScanner = document.getElementById('toggleScanner');
-                    if(toggleScanner) toggleScanner.onclick = () => {
-                        const ui = document.getElementById('adminScannerUI');
-                        if(ui.style.display === 'none') {
-                            if (typeof Html5Qrcode === 'undefined') {
-                                alert('SCANNER_ENGINE_OFFLINE: html5-qrcode library not loaded.');
-                                return;
+                    window.NXA_ATT = {
+                        punch: async (email, btn) => {
+                            const todayStr = new Date().toISOString().split('T')[0];
+                            const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+                            if (!profiles[email]) profiles[email] = {};
+                            if (!profiles[email].attendance) profiles[email].attendance = {};
+                            profiles[email].attendance[todayStr] = true;
+                            localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+                            if (typeof firebase !== 'undefined') {
+                                await Cloud.set('nxa_student_profiles', email, profiles[email]);
                             }
-                            ui.style.display = 'block';
-                            toggleScanner.innerText = 'TERMINATE_SCANNER';
-                            html5QrCode = new Html5Qrcode("scanner-container");
-                            html5QrCode.start(
-                                { facingMode: "environment" }, 
-                                { fps: 10, qrbox: { width: 250, height: 250 } },
-                                (decodedText) => {
-                                    if(decodedText.startsWith("ATT_") && decodedText.endsWith("_NXA")) {
-                                        const email = decodedText.split('_')[1];
-                                        const res = document.getElementById('scanner-result');
-                                        res.innerText = "AUTHENTICATED: " + email;
-                                        // Update that student's record
-                                        const dateStr = new Date().toISOString().split('T')[0];
-                                        const attKey = 'nxa_att_' + email;
-                                        const attRecord = JSON.parse(localStorage.getItem(attKey)) || {};
-                                        attRecord[dateStr] = true;
-                                        localStorage.setItem(attKey, JSON.stringify(attRecord));
-                                        if (navigator.vibrate) navigator.vibrate(50);
-                                        setTimeout(() => { res.innerText = ""; }, 2000);
+                            btn.innerText = '✓ PRESENT';
+                            btn.style.background = 'rgba(0,255,106,0.2)';
+                            btn.style.color = '#00ff6a';
+                            if (navigator.vibrate) navigator.vibrate(30);
+                        }
+                    };
+
+                    searchInput.oninput = (e) => renderPunch(e.target.value);
+                    renderPunch();
+                }
+
+                // ── Admin: QR Scanner ──
+                let html5QrCode;
+                const toggleBtn = document.getElementById('toggleScanner');
+                if (toggleBtn) toggleBtn.onclick = () => {
+                    const ui = document.getElementById('adminScannerUI');
+                    if (ui.style.display === 'none') {
+                        if (typeof Html5Qrcode === 'undefined') {
+                            alert('QR Scanner library not loaded. Check internet connection.');
+                            return;
+                        }
+                        ui.style.display = 'block';
+                        toggleBtn.innerText = '⛔ STOP SCANNER';
+                        html5QrCode = new Html5Qrcode('scanner-container');
+                        html5QrCode.start(
+                            { facingMode: 'environment' },
+                            { fps: 10, qrbox: { width: 240, height: 240 } },
+                            async (decoded) => {
+                                if (decoded.startsWith('ATT|') && decoded.endsWith('|NXA')) {
+                                    const parts = decoded.split('|');
+                                    const email = parts[1];
+                                    const todayStr = new Date().toISOString().split('T')[0];
+                                    const result = document.getElementById('scanner-result');
+                                    result.innerText = '✅ MARKING: ' + email;
+                                    // Save to profiles
+                                    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+                                    if (!profiles[email]) profiles[email] = {};
+                                    if (!profiles[email].attendance) profiles[email].attendance = {};
+                                    profiles[email].attendance[todayStr] = true;
+                                    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+                                    if (typeof firebase !== 'undefined') {
+                                        await Cloud.set('nxa_student_profiles', email, profiles[email]);
                                     }
+                                    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+                                    setTimeout(() => { result.innerText = '✅ ' + email + ' MARKED PRESENT'; }, 500);
+                                } else {
+                                    document.getElementById('scanner-result').innerText = '⚠️ Invalid QR';
                                 }
-                            ).catch(err => {
-                                console.error("SCAN_START_FAIL:", err);
-                                alert("SCANNER_ERROR: " + err);
-                            });
-                        } else {
-                            if(html5QrCode) {
-                                html5QrCode.stop().catch(e => console.warn("SCAN_STOP_FAIL:", e));
                             }
-                            ui.style.display = 'none';
-                            toggleScanner.innerText = 'ACTIVATE_SCANNER';
-                        }
-                    };
-                }, 400);
+                        ).catch(err => alert('Scanner error: ' + err));
+                    } else {
+                        if (html5QrCode) html5QrCode.stop().catch(() => {});
+                        ui.style.display = 'none';
+                        toggleBtn.innerText = '📷 ACTIVATE QR SCANNER';
+                    }
+                };
+            }, 300);
             </script>
         `;
     }
-
     viewProjects(state) {
         const isSuper = state.role === 'admin' && state.roleType === 'super';
         const isMax = state.role === 'admin' && state.roleType === 'max';
