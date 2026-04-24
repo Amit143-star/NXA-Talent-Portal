@@ -500,6 +500,40 @@ window.NXA_GEN_CERT = () => {
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 };
 
+window.NXASetPaymentConfig = async () => {
+    const upi = (document.getElementById('nxa_pay_upi')?.value || '').trim();
+    const fee = (document.getElementById('nxa_pay_fee')?.value || '').trim();
+    const qr = (document.getElementById('nxa_pay_qr')?.value || '').trim();
+
+    if(!upi || !fee) return alert('UPI ID and Access Fee are required.');
+
+    const config = { upi, fee, qr, updatedAt: new Date().toISOString() };
+    localStorage.setItem('nxa_payment_config', JSON.stringify(config));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'payment_config', config);
+    }
+    alert('PAYMENT_MATRIX_CONFIGURED: Matrix updated across all nodes.');
+    AppState.setView('course_admin');
+};
+
+window.NXAConfirmPayment = async () => {
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    const s = profiles[AppState.user.email];
+    if(!s) return alert('IDENTITY_SYNC_ERROR: Please re-login.');
+
+    s.payment_status = 'verified';
+    s.payment_date = new Date().toISOString();
+    
+    profiles[AppState.user.email] = s;
+    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_student_profiles', AppState.user.email, s);
+    }
+    
+    alert('PAYMENT_MANIFEST_SUCCESS: Course Matrix is now Unlocked.');
+    AppState.setView('courses');
+};
+
 window.NXACreateCourse = async () => {
     const title = document.getElementById('new_c_title').value.trim();
     const domain = document.getElementById('new_c_domain').value.trim();
@@ -919,6 +953,14 @@ class NXAEngine {
                     localStorage.setItem('nxa_internship_matrix', JSON.stringify(data.list));
                     if (AppState.view === 'internships') this.render(AppState);
                 }
+            }
+        });
+
+        // SYNC PAYMENT CONFIG
+        firebase.firestore().collection('nxa_broadcasts').doc('payment_config').onSnapshot(doc => {
+            if (doc.exists) {
+                localStorage.setItem('nxa_payment_config', JSON.stringify(doc.data()));
+                if (AppState.view === 'courses') this.render(AppState);
             }
         });
     }
@@ -2049,6 +2091,40 @@ class NXAEngine {
         const myProfile = profiles[state.user.email] || {};
         const myCourseIds = myProfile.assigned_courses || [];
         const myCourses = allCourses.filter(c => myCourseIds.includes(c.id));
+        
+        const payConfig = JSON.parse(localStorage.getItem('nxa_payment_config')) || { fee: '0', upi: '' };
+        const isVerified = myProfile.payment_status === 'verified' || payConfig.fee === '0';
+
+        if (!isVerified && state.role === 'student') {
+            return `
+                <section class="section" style="padding: 2rem; text-align: center; max-height: 100vh; overflow-y: auto; background: #000;">
+                    <div style="margin-bottom: 2rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+                        <h2 style="font-family: var(--font-heading); color: #ffcc00; letter-spacing: 2px;">COURSE_MATRIX_LOCKED</h2>
+                        <p style="color: var(--text-dim); font-size: 0.8rem;">To access your assigned industrial courses, complete the secure enrollment payment.</p>
+                    </div>
+
+                    <div style="background: var(--glass-bg); padding: 2rem; border-radius: 20px; border: 1px solid var(--accent-primary); margin-bottom: 2rem;">
+                        <div style="font-size: 0.6rem; color: var(--accent-primary); font-weight: 800; letter-spacing: 2px; margin-bottom: 15px;">NXA_SECURE_PAYMENT</div>
+                        <div style="font-size: 2.2rem; font-weight: 900; color: #fff; margin-bottom: 5px;">₹${payConfig.fee}</div>
+                        <div style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 20px;">ONE-TIME ACCESS FEE</div>
+                        
+                        ${payConfig.qr ? `<img src="${payConfig.qr}" style="width: 180px; height: 180px; background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 20px;">` : `
+                            <div style="padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 20px;">
+                                <div style="font-size: 0.55rem; color: var(--text-dim);">UPI_ID_IDENTIFIER</div>
+                                <div style="font-size: 1rem; font-weight: 800; color: #fff;">${payConfig.upi}</div>
+                            </div>
+                        `}
+                        
+                        <p style="font-size: 0.65rem; color: var(--text-dim); margin-bottom: 25px; line-height: 1.5;">Scan QR or pay to the UPI ID above. After transaction, click the verify button below.</p>
+                        
+                        <button onclick="window.NXAConfirmPayment()" style="width: 100%; padding: 18px; background: #00ff6a; color: #000; border: none; border-radius: 12px; font-weight: 900; font-size: 0.8rem; letter-spacing: 1px; cursor: pointer; box-shadow: 0 0 20px rgba(0,255,106,0.3);">CONFIRM_TRANSACTION_SUCCESS</button>
+                    </div>
+
+                    <p style="font-size: 0.5rem; color: var(--text-dim); opacity: 0.5;">Secure transaction monitored by NXA Industrial Node.</p>
+                </section>
+            `;
+        }
 
         return `
             <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto;">
@@ -2157,10 +2233,28 @@ class NXAEngine {
     viewCourseAdmin(state) {
         if (state.role !== 'admin' && state.user.email !== 'nxasupertalent@gmail.com') return this.viewHome(state);
         const courses = this.getCourses();
+        const payConfig = JSON.parse(localStorage.getItem('nxa_payment_config')) || { fee: '0', upi: '', qr: '' };
+
         return `
             <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; padding-bottom: 120px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2 style="font-family: var(--font-heading); font-size: 1.3rem; margin: 0; letter-spacing: 2px;">COURSE_CONTROL</h2>
+                    <button onclick="AppState.setView('courses')" style="background: none; border: 1px solid var(--glass-border); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.6rem; cursor: pointer;">RETURN</button>
+                </div>
+
+                <!-- PAYMENT CONFIGURATION MODULE -->
+                <div style="background: rgba(255, 204, 0, 0.05); border: 1px solid #ffcc00; padding: 1.5rem; border-radius: 20px; margin-bottom: 2rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; letter-spacing: 2px; color: #ffcc00;">GATEWAY_CONFIGURATION</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="input-block"><label style="font-size: 0.5rem;">UPI_ID</label><input id="nxa_pay_upi" type="text" value="${payConfig.upi}" placeholder="e.g. nxa@ybl" style="padding: 10px; font-size: 0.8rem;"></div>
+                        <div class="input-block"><label style="font-size: 0.5rem;">ACCESS_FEE (₹)</label><input id="nxa_pay_fee" type="number" value="${payConfig.fee}" placeholder="e.g. 999" style="padding: 10px; font-size: 0.8rem;"></div>
+                        <div class="input-block" style="grid-column: span 2;"><label style="font-size: 0.5rem;">QR_CODE_UPLINK (IMAGE URL)</label><input id="nxa_pay_qr" type="text" value="${payConfig.qr}" placeholder="https://..." style="padding: 10px; font-size: 0.8rem;"></div>
+                    </div>
+                    <button onclick="window.NXASetPaymentConfig()" style="width: 100%; margin-top: 1.5rem; background: #ffcc00; color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; cursor: pointer;">INITIALIZE_PAYMENT_NODE</button>
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
-                    <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px;">COURSE_CONTROL</h2>
+                    <h2 style="font-family: var(--font-heading); font-size: 1.2rem; margin: 0; letter-spacing: 1px;">COURSE_MATRIX_DEPLOYMENT</h2>
                     <button onclick="document.getElementById('addCourseForm').style.display = document.getElementById('addCourseForm').style.display === 'none' ? 'block' : 'none'" style="background: #00ff6a; color: #000; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">+ NEW</button>
                 </div>
 
