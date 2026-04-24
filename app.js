@@ -1349,7 +1349,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.4</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.5</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -1449,7 +1449,10 @@ class NXAEngine {
         document.querySelectorAll('.sidebar-item, .bottom-nav-item').forEach(item => {
             item.onclick = () => {
                 const view = item.dataset.view;
-                if (view) AppState.setView(view);
+                if (view) {
+                    if (view === 'courses') window.NXA.syncCloudState();
+                    AppState.setView(view);
+                }
                 document.getElementById('sidebar').classList.remove('open');
             };
         });
@@ -1464,13 +1467,6 @@ class NXAEngine {
 
 
     renderView(state) {
-        // AUTO-SYNC COURSE MATRIX WHEN ENTERING COURSES VIEW
-        if (state.view === 'courses') {
-            this.syncCloudState().then(() => {
-                // If data changed, the next render will catch it
-            });
-        }
-
         if (state.view === 'home') return this.viewHome(state);
         if (state.view === 'register') return this.viewRegister(state);
         if (state.view === 'student_mgmt') return this.viewStudentManagement(state);
