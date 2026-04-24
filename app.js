@@ -361,7 +361,7 @@ window.NXAInitAttendance = (email) => {
     }, 100);
 };
 
-window.NXADeployProject = () => {
+window.NXADeployProject = async () => {
     const title = (document.getElementById('nxa_proj_title')?.value || '').trim();
     const image = (document.getElementById('nxa_proj_image')?.value || '').trim();
     const info = (document.getElementById('nxa_proj_info')?.value || '').trim();
@@ -371,21 +371,29 @@ window.NXADeployProject = () => {
     if(!title) return alert('Project Title is required.');
 
     const projects = JSON.parse(localStorage.getItem('nxa_industrial_projects')) || [];
-    projects.unshift({ title, image, info, source, dataset, createdAt: new Date().toLocaleString() });
+    const newProj = { title, image, info, source, dataset, createdAt: new Date().toLocaleString() };
+    projects.unshift(newProj);
+    
     localStorage.setItem('nxa_industrial_projects', JSON.stringify(projects));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'project_matrix', { list: projects });
+    }
     
     AppState.setView('projects');
 };
 
-window.NXADeleteProject = (idx) => {
+window.NXADeleteProject = async (idx) => {
     if(!confirm('TERMINATE_PROJECT_NODE?')) return;
     const projects = JSON.parse(localStorage.getItem('nxa_industrial_projects')) || [];
     projects.splice(idx, 1);
     localStorage.setItem('nxa_industrial_projects', JSON.stringify(projects));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'project_matrix', { list: projects });
+    }
     AppState.setView('projects');
 };
 
-window.NXAPostInternship = () => {
+window.NXAPostInternship = async () => {
     const title = (document.getElementById('nxa_int_title')?.value || '').trim();
     const desc = (document.getElementById('nxa_int_desc')?.value || '').trim();
     const req = (document.getElementById('nxa_int_req')?.value || '').trim();
@@ -396,14 +404,20 @@ window.NXAPostInternship = () => {
     const hubs = JSON.parse(localStorage.getItem('nxa_internship_matrix')) || [];
     hubs.unshift({ id: 'INT_' + Date.now(), title, desc, req, link });
     localStorage.setItem('nxa_internship_matrix', JSON.stringify(hubs));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'internship_matrix', { list: hubs });
+    }
     AppState.setView('internships');
 };
 
-window.NXADeleteInternship = (idx) => {
+window.NXADeleteInternship = async (idx) => {
     if(!confirm('TERMINATE_INTERNSHIP_NODE?')) return;
     const hubs = JSON.parse(localStorage.getItem('nxa_internship_matrix')) || [];
     hubs.splice(idx, 1);
     localStorage.setItem('nxa_internship_matrix', JSON.stringify(hubs));
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_broadcasts', 'internship_matrix', { list: hubs });
+    }
     AppState.setView('internships');
 };
 
@@ -790,6 +804,28 @@ class NXAEngine {
             if (doc.exists) {
                 localStorage.setItem('nxa_attendance_session', JSON.stringify(doc.data()));
                 if (AppState.view === 'attendance') this.render(AppState);
+            }
+        });
+
+        // SYNC PROJECT MATRIX
+        firebase.firestore().collection('nxa_broadcasts').doc('project_matrix').onSnapshot(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.list) {
+                    localStorage.setItem('nxa_industrial_projects', JSON.stringify(data.list));
+                    if (AppState.view === 'projects') this.render(AppState);
+                }
+            }
+        });
+
+        // SYNC INTERNSHIP MATRIX
+        firebase.firestore().collection('nxa_broadcasts').doc('internship_matrix').onSnapshot(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.list) {
+                    localStorage.setItem('nxa_internship_matrix', JSON.stringify(data.list));
+                    if (AppState.view === 'internships') this.render(AppState);
+                }
             }
         });
     }
@@ -1557,7 +1593,7 @@ class NXAEngine {
                                     <button onclick="window.open('${p.dataset}', '_blank')" style="background: rgba(0, 255, 106, 0.1); border: 1px solid #00ff6a; color: #00ff6a; padding: 8px; border-radius: 6px; font-size: 0.5rem; font-weight: 800; cursor: pointer;">DATASET</button>
                                 </div>
 
-                                ${isExecutive ? `<button onclick="window.NXADeleteProject(${idx})" style="width: 100%; height: 35px; background: rgba(255, 69, 69, 0.05); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.1); border-radius: 6px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">TERMINATE_NODE</button>` : ''}
+                                ${state.role === 'admin' ? `<button onclick="window.NXADeleteProject(${idx})" style="width: 100%; height: 35px; background: rgba(255, 69, 69, 0.05); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.1); border-radius: 6px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">TERMINATE_NODE</button>` : ''}
                             </div>
                         </div>
                     `).join('')}
@@ -1612,7 +1648,7 @@ class NXAEngine {
                                     <p style="font-size: 0.7rem; color: var(--text-dim); line-height: 1.4;">REQ: ${inst.req}</p>
                                 </div>
                                 <div style="display: flex; gap: 10px; align-items: center;">
-                                    ${isSuper ? `<button onclick="window.NXADeleteInternship(${idx})" style="background: none; border: 1px solid #ff4545; color: #ff4545; padding: 8px 15px; border-radius: 8px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">TERMINATE</button>` : ''}
+                                    ${state.role === 'admin' ? `<button onclick="window.NXADeleteInternship(${idx})" style="background: none; border: 1px solid #ff4545; color: #ff4545; padding: 8px 15px; border-radius: 8px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">TERMINATE</button>` : ''}
                                     <button onclick="window.NXAApplyInternship('${inst.id}', '${inst.link}')" ${hasApplied ? 'disabled' : ''} style="background: ${hasApplied ? 'rgba(0, 255, 106, 0.1)' : 'var(--accent-primary)'}; color: ${hasApplied ? '#00ff66' : '#000'}; border: ${hasApplied ? '1px solid #00ff6a' : 'none'}; padding: 12px 25px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">
                                         ${hasApplied ? 'APPLIED ✅' : 'APPLY_NOW'}
                                     </button>
