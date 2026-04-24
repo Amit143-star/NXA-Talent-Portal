@@ -1263,10 +1263,25 @@ class NXAEngine {
                     <div class="bottom-nav-item ${state.view === 'live' ? 'active' : ''}" data-view="live">
                         <svg class="icon-svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5.337 5.337a8 8 0 0111.326 0M8.165 8.165a4 4 0 015.67 0M11 11a1 1 0 112 0 1 1 0 01-2 0m-3.924 3.924a4 4 0 01-5.67 0m11.326 1.402a8 8 0 01-11.326 0"/></svg>
                     </div>
-                    <!-- COURSES ICON -->
-                    <div class="bottom-nav-item ${state.view === 'courses' ? 'active' : ''}" data-view="courses">
-                        <svg class="icon-svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
-                    </div>
+                    <!-- COURSES ICON WITH LOCK STATUS -->
+                    ${(() => {
+                        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+                        const p = profiles[state.user.email] || {};
+                        const config = JSON.parse(localStorage.getItem('nxa_payment_config')) || { fee: '0' };
+                        const paid = p.payment_status === 'verified' || String(config.fee) === '0';
+                        return `
+                            <div class="bottom-nav-item ${state.view === 'courses' ? 'active' : ''}" data-view="courses">
+                                ${paid ? `
+                                    <svg class="icon-svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+                                ` : `
+                                    <div style="position: relative;">
+                                        <svg class="icon-svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.4;"><path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+                                        <span style="position: absolute; top: -5px; right: -5px; font-size: 10px;">🔒</span>
+                                    </div>
+                                `}
+                            </div>
+                        `;
+                    })()}
                     <!-- SELF ICON -->
                     <div class="bottom-nav-item ${state.view === 'self' ? 'active' : ''}" data-view="self">
                         <svg class="icon-svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -1521,6 +1536,9 @@ class NXAEngine {
                                     <div>
                                         <h3 style="font-size: 1.2rem; color: #fff; margin:0; font-family: var(--font-heading);">${s.fullname}</h3>
                                         <span style="color: var(--accent-primary); font-size: 0.6rem; font-weight: 900; letter-spacing: 1px;">${s.email.toUpperCase()}</span>
+                                        <div style="margin-top: 8px;">
+                                            <span style="font-size: 0.5rem; background: ${s.payment_status === 'verified' ? 'rgba(0, 255, 106, 0.1)' : 'rgba(255, 69, 69, 0.1)'}; color: ${s.payment_status === 'verified' ? '#00ff6a' : '#ff4545'}; padding: 2px 8px; border-radius: 4px; font-weight: 800; border: 1px solid ${s.payment_status === 'verified' ? '#00ff6a' : '#ff4545'};">PAYMENT: ${s.payment_status === 'verified' ? 'VERIFIED ✓' : 'PENDING 🔒'}</span>
+                                        </div>
                                     </div>
                                     <div style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); padding: 4px 8px; border-radius: 4px; font-size: 0.5rem; font-weight: 900;">CGPA: ${s.cgpa || 'N/A'}</div>
                                 </div>
@@ -2093,7 +2111,7 @@ class NXAEngine {
         const myCourses = allCourses.filter(c => myCourseIds.includes(c.id));
         
         const payConfig = JSON.parse(localStorage.getItem('nxa_payment_config')) || { fee: '0', upi: '' };
-        const isVerified = myProfile.payment_status === 'verified' || payConfig.fee === '0';
+        const isVerified = myProfile.payment_status === 'verified' || String(payConfig.fee) === '0';
 
         if (!isVerified && state.role === 'student') {
             return `
