@@ -1130,8 +1130,6 @@ class NXAEngine {
         const isSuper = state.role === 'admin' && state.roleType === 'super';
         const isMax = state.role === 'admin' && state.roleType === 'max';
         const isCenter = state.role === 'admin' && state.roleType === 'center';
-        
-        const isAuthorizedToBroadcast = isSuper || isCenter || isMax;
         const activeTab = state.adminTab || 'dossiers';
 
         return `
@@ -1147,7 +1145,6 @@ class NXAEngine {
                 <div style="display: flex; gap: 10px; margin-bottom: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
                     <button onclick="AppState.adminTab='dossiers'; NXA.render(AppState)" style="background: ${activeTab === 'dossiers' ? 'var(--accent-primary)' : 'transparent'}; color: ${activeTab === 'dossiers' ? '#000' : '#fff'}; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">DOSSIERS (${students.length})</button>
                     <button onclick="AppState.adminTab='pending'; NXA.render(AppState)" style="background: ${activeTab === 'pending' ? '#ffcc00' : 'transparent'}; color: ${activeTab === 'pending' ? '#000' : '#fff'}; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">PENDING (${pending.length})</button>
-                    <button onclick="AppState.adminTab='broadcast'; NXA.render(AppState)" style="background: ${activeTab === 'broadcast' ? '#fff' : 'transparent'}; color: ${activeTab === 'broadcast' ? '#000' : '#fff'}; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">BROADCAST</button>
                 </div>
 
                 ${activeTab === 'dossiers' ? `
@@ -1207,29 +1204,7 @@ class NXAEngine {
                     </div>
                 ` : ''}
 
-                ${activeTab === 'broadcast' ? `
-                    <div style="max-width: 600px; margin: 0 auto; background: rgba(0, 229, 255, 0.03); padding: 3rem; border-radius: 32px; border: 1px solid var(--accent-primary);">
-                        <h3 style="margin: 0 0 2rem 0; font-size: 1.2rem; font-family: var(--font-heading); color: var(--accent-primary);">GLOBAL_SIGNAL_BROADCAST</h3>
-                        <div style="display: grid; gap: 1.5rem;">
-                            <div class="input-block">
-                                <label style="font-size: 0.5rem; color: var(--accent-primary); margin-bottom: 5px; display: block;">SIGNAL_MESSAGE</label>
-                                <textarea id="broadcastMsg" placeholder="Type industrial alert message..." style="width: 100%; background: #000; border: 1px solid var(--glass-border); padding: 15px; border-radius: 12px; color: #fff; font-size: 0.85rem; outline: none; min-height: 100px;"></textarea>
-                            </div>
-                            <div style="display: flex; gap: 15px;">
-                                <div style="flex: 1;">
-                                    <label style="font-size: 0.5rem; color: var(--accent-primary); margin-bottom: 5px; display: block;">TYPE</label>
-                                    <select id="broadcastType" style="width: 100%; background: #000; border: 1px solid var(--glass-border); color: #fff; padding: 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">
-                                        <option value="SIGNAL">SIGNAL</option>
-                                        <option value="ALERT">ALERT</option>
-                                        <option value="FOUNDER">FOUNDER</option>
-                                        <option value="SYSTEM">SYSTEM</option>
-                                    </select>
-                                </div>
-                                <button id="sendBroadcast" style="align-self: flex-end; background: var(--accent-primary); color: #000; border: none; padding: 15px 30px; border-radius: 12px; font-weight: 900; font-size: 0.75rem; cursor: pointer;">DISPATCH</button>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
+
             </section>
         `;
     }
