@@ -713,6 +713,28 @@ class NXAEngine {
             }
         });
 
+        // IMMEDIATE PROJECT FETCH
+        firebase.firestore().collection('nxa_broadcasts').doc('project_matrix').get().then(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.list) {
+                    localStorage.setItem('nxa_industrial_projects', JSON.stringify(data.list));
+                    if (AppState.view === 'projects') this.render(AppState);
+                }
+            }
+        });
+
+        // IMMEDIATE INTERNSHIP FETCH
+        firebase.firestore().collection('nxa_broadcasts').doc('internship_matrix').get().then(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.list) {
+                    localStorage.setItem('nxa_internship_matrix', JSON.stringify(data.list));
+                    if (AppState.view === 'internships') this.render(AppState);
+                }
+            }
+        });
+
         // IMMEDIATE STUDENT PROFILE FETCH (get latest assigned_courses)
         if (AppState.user && AppState.user.email) {
             firebase.firestore().collection('nxa_student_profiles').doc(AppState.user.email).get().then(doc => {
@@ -2332,8 +2354,8 @@ class NXAEngine {
 document.addEventListener('DOMContentLoaded', () => {
     new NXAEngine();
 
-    // ── FULL GESTURE SYSTEM v3 ──────────────────────────────────────
-    const studentTabs = ['home', 'live', 'courses', 'self'];
+    // ── FULL GESTURE SYSTEM v4 ──────────────────────────────────────
+    const studentTabs = ['home', 'leetcode', 'attendance', 'live', 'courses', 'projects', 'internships', 'career', 'self'];
     const adminTabs   = ['home', 'student_mgmt', 'live', 'courses', 'notifications'];
 
     function getTabOrder() {
