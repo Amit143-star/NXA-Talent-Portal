@@ -1072,33 +1072,52 @@ class NXAEngine {
     }
 
     viewNotifications(state) {
+        const isAdmin = state.role === 'admin' || state.user.email === 'nxasupertalent@gmail.com';
         const customAlerts = JSON.parse(localStorage.getItem('nxa_system_alerts')) || [];
         const defaultAlerts = [
             { id: 'def1', type: 'SYSTEM', msg: 'Core AI Matrix Updated to v1.2', time: 'SYSTEM' },
             { id: 'def2', type: 'FOUNDER', msg: 'Welcome to NXA Talent Industrial Portal.', time: 'NARENDRA' }
         ];
-        // Combine and show latest first
-        // customAlerts are already [Newest -> Oldest] because of unshift/Firestore sort
         const alerts = [...customAlerts, ...defaultAlerts];
 
         return `
-            <section class="section" style="padding: 1.5rem; max-height: 100vh; overflow-y: auto;">
-                <h2 style="font-family: var(--font-heading); font-size: 2.22rem; margin-bottom: 2.5rem; letter-spacing: -1px;">NOTIFICATION_MATRIX</h2>
-                <div style="display: grid; gap: 1.25rem; max-width: 700px; padding-bottom: 120px;">
+            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; padding-bottom: 120px;">
+
+                ${isAdmin ? `
+                <!-- ADMIN BROADCAST PANEL -->
+                <div style="background: rgba(0,242,255,0.04); border: 1px solid var(--accent-primary); border-radius: 20px; padding: 1.2rem; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; font-weight: 900; letter-spacing: 3px; color: var(--accent-primary);">📡 BROADCAST SIGNAL</h3>
+                    <div style="display: grid; gap: 0.8rem;">
+                        <textarea id="broadcastMsg" placeholder="Type your message to all students..." style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); padding: 12px; border-radius: 12px; color: #fff; font-size: 0.85rem; outline: none; min-height: 80px; resize: none; box-sizing: border-box;"></textarea>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <select id="broadcastType" style="flex:1; background: #000; border: 1px solid var(--glass-border); color: #fff; padding: 10px; border-radius: 10px; font-size: 0.7rem; font-weight: 800;">
+                                <option value="SIGNAL">📢 SIGNAL</option>
+                                <option value="ALERT">🚨 ALERT</option>
+                                <option value="FOUNDER">👑 FOUNDER</option>
+                                <option value="SYSTEM">⚙️ SYSTEM</option>
+                            </select>
+                            <button id="sendBroadcast" style="background: var(--accent-primary); color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 900; font-size: 0.7rem; cursor: pointer; white-space: nowrap;">⚡ DISPATCH</button>
+                        </div>
+                    </div>
+                </div>` : ''}
+
+                <h2 style="font-family: var(--font-heading); font-size: 1.5rem; margin-bottom: 1.5rem; letter-spacing: -1px;">SIGNAL_FEED</h2>
+                <div style="display: grid; gap: 1rem;">
                     ${alerts.map(a => `
-                        <div style="background: var(--glass-bg); padding: 1.8rem; border-radius: 24px; border: 1px solid var(--glass-border); position: relative; overflow: hidden; animation: cardManifest 0.4s ease forwards;">
-                            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: ${a.type === 'ALERT' ? '#ff4545' : 'var(--accent-primary)'}; shadow: 0 0 10px ${a.type === 'ALERT' ? '#ff4545' : 'var(--accent-primary)'};"></div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                <span style="font-size: 0.6rem; font-weight: 900; letter-spacing: 3px; color: ${a.type === 'ALERT' ? '#ff4545' : 'var(--accent-primary)'}; opacity: 1;">[ ${a.type} ]</span>
-                                <span style="font-size: 0.55rem; color: var(--text-dim); font-weight: 800;">${a.time || 'SYNCHRONIZED'}</span>
+                        <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 16px; border: 1px solid var(--glass-border); position: relative; overflow: hidden;">
+                            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${a.type === 'ALERT' ? '#ff4545' : a.type === 'FOUNDER' ? '#ffcc00' : 'var(--accent-primary)'};"></div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                                <span style="font-size: 0.5rem; font-weight: 900; letter-spacing: 2px; color: ${a.type === 'ALERT' ? '#ff4545' : a.type === 'FOUNDER' ? '#ffcc00' : 'var(--accent-primary)'};">[ ${a.type} ]</span>
+                                <span style="font-size: 0.5rem; color: var(--text-dim);">${a.time || 'NOW'}</span>
                             </div>
-                            <p style="color: #fff; font-size: 0.95rem; line-height: 1.6; margin: 0; opacity: 0.9;">${a.msg}</p>
+                            <p style="color: #fff; font-size: 0.9rem; line-height: 1.6; margin: 0;">${a.msg}</p>
                         </div>
                     `).join('')}
                 </div>
             </section>
         `;
     }
+
 
     viewStudentManagement(state) {
         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
