@@ -1389,7 +1389,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v6.9</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.0</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -1487,21 +1487,30 @@ class NXAEngine {
         `;
 
         document.querySelectorAll('.sidebar-item, .bottom-nav-item').forEach(item => {
-            item.onclick = () => {
+            const handleNavTap = (e) => {
+                if (e.type === 'touchstart') e.preventDefault(); // Prevent double trigger
                 const view = item.dataset.view;
                 if (view) {
                     if (view === 'courses') window.NXA.syncCloudState();
                     AppState.setView(view);
                 }
-                document.getElementById('sidebar').classList.remove('open');
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) sidebar.classList.remove('open');
             };
+
+            item.onclick = handleNavTap;
+            item.ontouchstart = handleNavTap;
         });
 
         const menuToggle = document.getElementById('menuToggle');
         if (menuToggle) {
-            menuToggle.onclick = () => {
-                document.getElementById('sidebar').classList.toggle('open');
+            const handleToggle = (e) => {
+                if (e.type === 'touchstart') e.preventDefault();
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) sidebar.classList.toggle('open');
             };
+            menuToggle.onclick = handleToggle;
+            menuToggle.ontouchstart = handleToggle;
         }
     }
 
