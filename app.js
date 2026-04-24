@@ -362,11 +362,11 @@ window.NXAInitAttendance = (email) => {
 };
 
 window.NXADeployProject = () => {
-    const title = document.getElementById('p_title').value;
-    const image = document.getElementById('p_image').value;
-    const info = document.getElementById('p_info').value;
-    const source = document.getElementById('p_source').value;
-    const dataset = document.getElementById('p_dataset').value;
+    const title = (document.getElementById('nxa_proj_title')?.value || '').trim();
+    const image = (document.getElementById('nxa_proj_image')?.value || '').trim();
+    const info = (document.getElementById('nxa_proj_info')?.value || '').trim();
+    const source = (document.getElementById('nxa_proj_source')?.value || '').trim();
+    const dataset = (document.getElementById('nxa_proj_dataset')?.value || '').trim();
 
     if(!title) return alert('Project Title is required.');
 
@@ -383,6 +383,36 @@ window.NXADeleteProject = (idx) => {
     projects.splice(idx, 1);
     localStorage.setItem('nxa_industrial_projects', JSON.stringify(projects));
     AppState.setView('projects');
+};
+
+window.NXAPostInternship = () => {
+    const title = (document.getElementById('nxa_int_title')?.value || '').trim();
+    const desc = (document.getElementById('nxa_int_desc')?.value || '').trim();
+    const req = (document.getElementById('nxa_int_req')?.value || '').trim();
+    const link = (document.getElementById('nxa_int_link')?.value || '').trim();
+
+    if(!title || !link) return alert('Title and Link are required.');
+
+    const hubs = JSON.parse(localStorage.getItem('nxa_internship_matrix')) || [];
+    hubs.unshift({ id: 'INT_' + Date.now(), title, desc, req, link });
+    localStorage.setItem('nxa_internship_matrix', JSON.stringify(hubs));
+    AppState.setView('internships');
+};
+
+window.NXADeleteInternship = (idx) => {
+    if(!confirm('TERMINATE_INTERNSHIP_NODE?')) return;
+    const hubs = JSON.parse(localStorage.getItem('nxa_internship_matrix')) || [];
+    hubs.splice(idx, 1);
+    localStorage.setItem('nxa_internship_matrix', JSON.stringify(hubs));
+    AppState.setView('internships');
+};
+
+window.NXAApplyInternship = (id, link) => {
+    const apps = JSON.parse(localStorage.getItem(`nxa_apps_${AppState.user.email}`)) || [];
+    if(!apps.includes(id)) apps.push(id);
+    localStorage.setItem(`nxa_apps_${AppState.user.email}`, JSON.stringify(apps));
+    window.open(link, '_blank');
+    AppState.setView('internships');
 };
 
 window.NXACreateCourse = async () => {
@@ -1499,11 +1529,11 @@ class NXAEngine {
                     <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid var(--accent-primary); margin-bottom: 2rem;">
                         <h3 style="margin: 0 0 1rem 0; font-size: 0.8rem; letter-spacing: 1px; color: var(--accent-primary);">DEPLOY_NEW_PROJECT</h3>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div class="input-block"><label style="font-size: 0.5rem;">PROJECT_TITLE</label><input id="p_title" type="text" placeholder="Project Name" style="padding: 10px; font-size: 0.8rem;"></div>
-                            <div class="input-block"><label style="font-size: 0.5rem;">IMAGE_MANIFEST_URL</label><input id="p_image" type="text" placeholder="https://..." style="padding: 10px; font-size: 0.8rem;"></div>
-                            <div class="input-block" style="grid-column: span 2;"><label style="font-size: 0.5rem;">INDUSTRIAL_INFORMATION</label><textarea id="p_info" placeholder="Detailed project description..." style="width: 100%; height: 60px; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff; padding: 10px; font-size: 0.75rem;"></textarea></div>
-                            <div class="input-block"><label style="font-size: 0.5rem;">SOURCE_CODE_UPLINK</label><input id="p_source" type="text" placeholder="Github/GitLab Link" style="padding: 10px; font-size: 0.8rem;"></div>
-                            <div class="input-block"><label style="font-size: 0.5rem;">DATASET_ARCHIVE</label><input id="p_dataset" type="text" placeholder="Dataset URL" style="padding: 10px; font-size: 0.8rem;"></div>
+                            <div class="input-block"><label style="font-size: 0.5rem;">PROJECT_TITLE</label><input id="nxa_proj_title" type="text" placeholder="Project Name" style="padding: 10px; font-size: 0.8rem;"></div>
+                            <div class="input-block"><label style="font-size: 0.5rem;">IMAGE_MANIFEST_URL</label><input id="nxa_proj_image" type="text" placeholder="https://..." style="padding: 10px; font-size: 0.8rem;"></div>
+                            <div class="input-block" style="grid-column: span 2;"><label style="font-size: 0.5rem;">INDUSTRIAL_INFORMATION</label><textarea id="nxa_proj_info" placeholder="Detailed project description..." style="width: 100%; height: 60px; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff; padding: 10px; font-size: 0.75rem;"></textarea></div>
+                            <div class="input-block"><label style="font-size: 0.5rem;">SOURCE_CODE_UPLINK</label><input id="nxa_proj_source" type="text" placeholder="Github/GitLab Link" style="padding: 10px; font-size: 0.8rem;"></div>
+                            <div class="input-block"><label style="font-size: 0.5rem;">DATASET_ARCHIVE</label><input id="nxa_proj_dataset" type="text" placeholder="Dataset URL" style="padding: 10px; font-size: 0.8rem;"></div>
                         </div>
                         <button onclick="window.NXADeployProject()" style="width: 100%; margin-top: 1.5rem; background: var(--accent-primary); color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; letter-spacing: 1px; cursor: pointer;">MANIFEST_PROJECT</button>
                     </div>
@@ -1555,12 +1585,12 @@ class NXAEngine {
                     <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid #ffcc00; margin-bottom: 2rem;">
                         <h3 style="margin: 0 0 1rem 0; font-size: 0.8rem; letter-spacing: 1px; color: #ffcc00;">POST_NEW_INTERNSHIP</h3>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div class="input-block"><label style="font-size: 0.5rem;">COMPANY_ROLE</label><input id="i_title" type="text" placeholder="e.g. Google - AI Research" style="padding: 10px; font-size: 0.8rem;"></div>
-                            <div class="input-block"><label style="font-size: 0.5rem;">STIPEND_DURATION</label><input id="i_desc" type="text" placeholder="e.g. 50k/mo - 6 Months" style="padding: 10px; font-size: 0.8rem;"></div>
-                            <div class="input-block" style="grid-column: span 2;"><label style="font-size: 0.5rem;">CORE_REQUIREMENTS</label><textarea id="i_req" placeholder="Python, TensorFlow, Neural Networks..." style="width: 100%; height: 60px; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff; padding: 10px; font-size: 0.75rem;"></textarea></div>
-                            <div class="input-block" style="grid-column: span 2;"><label style="font-size: 0.5rem;">APPLICATION_UPLINK_URL</label><input id="i_link" type="text" placeholder="https://..." style="padding: 10px; font-size: 0.8rem;"></div>
+                            <div class="input-block"><label style="font-size: 0.5rem;">COMPANY_ROLE</label><input id="nxa_int_title" type="text" placeholder="e.g. Google - AI Research" style="padding: 10px; font-size: 0.8rem;"></div>
+                            <div class="input-block"><label style="font-size: 0.5rem;">STIPEND_DURATION</label><input id="nxa_int_desc" type="text" placeholder="e.g. 50k/mo - 6 Months" style="padding: 10px; font-size: 0.8rem;"></div>
+                            <div class="input-block" style="grid-column: span 2;"><label style="font-size: 0.5rem;">CORE_REQUIREMENTS</label><textarea id="nxa_int_req" placeholder="Python, TensorFlow, Neural Networks..." style="width: 100%; height: 60px; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff; padding: 10px; font-size: 0.75rem;"></textarea></div>
+                            <div class="input-block" style="grid-column: span 2;"><label style="font-size: 0.5rem;">APPLICATION_UPLINK_URL</label><input id="nxa_int_link" type="text" placeholder="https://..." style="padding: 10px; font-size: 0.8rem;"></div>
                         </div>
-                        <button id="postInternship" style="width: 100%; margin-top: 1.5rem; background: #ffcc00; color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; letter-spacing: 1px; cursor: pointer;">DEPLOY_OPPORTUNITY</button>
+                        <button onclick="window.NXAPostInternship()" style="width: 100%; margin-top: 1.5rem; background: #ffcc00; color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; letter-spacing: 1px; cursor: pointer;">DEPLOY_OPPORTUNITY</button>
                     </div>
                 ` : ''}
 
@@ -1582,8 +1612,8 @@ class NXAEngine {
                                     <p style="font-size: 0.7rem; color: var(--text-dim); line-height: 1.4;">REQ: ${inst.req}</p>
                                 </div>
                                 <div style="display: flex; gap: 10px; align-items: center;">
-                                    ${isSuper ? `<button onclick="window.NXA_INT.deleteNode(${idx})" style="background: none; border: 1px solid #ff4545; color: #ff4545; padding: 8px 15px; border-radius: 8px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">TERMINATE</button>` : ''}
-                                    <button onclick="window.NXA_INT.applyNode('${inst.id}', '${inst.link}')" ${hasApplied ? 'disabled' : ''} style="background: ${hasApplied ? 'rgba(0, 255, 106, 0.1)' : 'var(--accent-primary)'}; color: ${hasApplied ? '#00ff66' : '#000'}; border: ${hasApplied ? '1px solid #00ff6a' : 'none'}; padding: 12px 25px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">
+                                    ${isSuper ? `<button onclick="window.NXADeleteInternship(${idx})" style="background: none; border: 1px solid #ff4545; color: #ff4545; padding: 8px 15px; border-radius: 8px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">TERMINATE</button>` : ''}
+                                    <button onclick="window.NXAApplyInternship('${inst.id}', '${inst.link}')" ${hasApplied ? 'disabled' : ''} style="background: ${hasApplied ? 'rgba(0, 255, 106, 0.1)' : 'var(--accent-primary)'}; color: ${hasApplied ? '#00ff66' : '#000'}; border: ${hasApplied ? '1px solid #00ff6a' : 'none'}; padding: 12px 25px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">
                                         ${hasApplied ? 'APPLIED ✅' : 'APPLY_NOW'}
                                     </button>
                                 </div>
@@ -1592,41 +1622,6 @@ class NXAEngine {
                     }).join('')}
                 </div>
             </section>
-            <script>
-                setTimeout(() => {
-                    const postBtn = document.getElementById('postInternship');
-                    if(postBtn) postBtn.onclick = () => {
-                        const title = document.getElementById('i_title').value;
-                        const desc = document.getElementById('i_desc').value;
-                        const req = document.getElementById('i_req').value;
-                        const link = document.getElementById('i_link').value;
-
-                        if(!title || !link) return alert('Title and Link are required.');
-
-                        const hubs = JSON.parse(localStorage.getItem('nxa_internship_matrix')) || [];
-                        hubs.unshift({ id: 'INT_' + Date.now(), title, desc, req, link });
-                        localStorage.setItem('nxa_internship_matrix', JSON.stringify(hubs));
-                        AppState.setView('internships');
-                    };
-
-                    window.NXA_INT = {
-                        deleteNode: (idx) => {
-                            if(!confirm('TERMINATE_INTERNSHIP_NODE?')) return;
-                            const hubs = JSON.parse(localStorage.getItem('nxa_internship_matrix')) || [];
-                            hubs.splice(idx, 1);
-                            localStorage.setItem('nxa_internship_matrix', JSON.stringify(hubs));
-                            AppState.setView('internships');
-                        },
-                        applyNode: (id, link) => {
-                            const apps = JSON.parse(localStorage.getItem(\`nxa_apps_\${AppState.user.email}\`)) || [];
-                            if(!apps.includes(id)) apps.push(id);
-                            localStorage.setItem(\`nxa_apps_\${AppState.user.email}\`, JSON.stringify(apps));
-                            window.open(link, '_blank');
-                            AppState.setView('internships');
-                        }
-                    };
-                }, 400);
-            </script>
         `;
     }
 
