@@ -249,7 +249,7 @@ window.NXACreateCourse = async () => {
     window.NXA.saveCourses(courses);
     // Sync to Firebase so all devices see the new course
     if (typeof firebase !== 'undefined') {
-        await Cloud.set('nxa_courses', 'all_courses', { list: courses });
+        await Cloud.set('nxa_broadcasts', 'course_matrix', { list: courses });
     }
     AppState.setView('course_admin');
 };
@@ -259,7 +259,7 @@ window.NXADeleteCourse = async (id) => {
     const filtered = window.NXA.getCourses().filter(c => c.id !== id);
     window.NXA.saveCourses(filtered);
     if (typeof firebase !== 'undefined') {
-        await Cloud.set('nxa_courses', 'all_courses', { list: filtered });
+        await Cloud.set('nxa_broadcasts', 'course_matrix', { list: filtered });
     }
     AppState.setView('course_admin');
 };
@@ -328,7 +328,7 @@ window.NXADeleteResource = (courseId, type, idx) => {
     else if (type === 'yt') course.videos.splice(idx, 1);
     else if (type === 'doc') course.docs.splice(idx, 1);
     window.NXA.saveCourses(courses);
-    if (typeof firebase !== 'undefined') Cloud.set('nxa_courses', 'all_courses', { list: courses });
+    if (typeof firebase !== 'undefined') Cloud.set('nxa_broadcasts', 'course_matrix', { list: courses });
     AppState.setView('course_editor_' + courseId);
 };
 
@@ -538,7 +538,7 @@ class NXAEngine {
         });
 
         // SYNC COURSE REPOSITORY (real-time for all devices)
-        firebase.firestore().collection('nxa_courses').doc('all_courses').onSnapshot(doc => {
+        firebase.firestore().collection('nxa_broadcasts').doc('course_matrix').onSnapshot(doc => {
             if (doc.exists) {
                 const data = doc.data();
                 if (data && data.list && Array.isArray(data.list)) {
