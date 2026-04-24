@@ -1264,7 +1264,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.4</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.5</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2198,15 +2198,12 @@ class NXAEngine {
                                         </div>
                                         
                                         <div style="text-align: right;">
-                                            ${isPaid ? `
-                                                <button onclick="AppState.setView('course_view_${c.id}')" class="btn-primary-lg" style="padding: 10px 20px; font-size: 0.65rem; height: auto; width: auto; background: var(--accent-primary);">OPEN_UNIT</button>
-                                            ` : `
-                                                <div style="margin-bottom: 8px;">
-                                                    <div style="font-size: 0.9rem; font-weight: 900; color: #fff;">₹${c.price}</div>
-                                                    <div style="font-size: 0.45rem; color: var(--text-dim); letter-spacing: 1px;">PAY_TO_UNLOCK</div>
-                                                </div>
-                                                <button onclick="NXA.showPaymentGateway('${c.id}', '${c.price}')" style="background: #ffcc00; color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">ENROLL_NOW</button>
-                                            `}
+                                            <button onclick="${isPaid ? `AppState.setView('course_view_${c.id}')` : `NXA.showPaymentGateway('${c.id}', '${c.price}')`}" 
+                                                    class="btn-primary-lg" 
+                                                    style="padding: 10px 20px; font-size: 0.65rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; color: ${isPaid ? '#000' : '#000'}; border: none;">
+                                                ${isPaid ? 'OPEN_UNIT' : `OPEN_UNIT 🔒`}
+                                            </button>
+                                            ${!isPaid ? `<div style="font-size: 0.55rem; color: #ffcc00; font-weight: 900; margin-top: 4px; letter-spacing: 1px;">₹${c.price}</div>` : ''}
                                         </div>
                                     </div>
                                 </div>
