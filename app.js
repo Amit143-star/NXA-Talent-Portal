@@ -1264,7 +1264,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.6</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.7</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2146,7 +2146,17 @@ class NXAEngine {
             { id: 'c3', title: 'Cyber Security Protocol', domain: 'Security', price: '699' }
         ];
         const saved = localStorage.getItem('nxa_system_courses');
-        return saved ? JSON.parse(saved) : defaultCourses;
+        let courses = saved ? JSON.parse(saved) : defaultCourses;
+        
+        // MIGRATION: Ensure all courses have a price
+        let migrated = false;
+        courses = courses.map(c => {
+            if (!c.price) { c.price = '999'; migrated = true; }
+            return c;
+        });
+        if (migrated) this.saveCourses(courses);
+        
+        return courses;
     }
 
     saveCourses(courses) {
@@ -2320,14 +2330,14 @@ class NXAEngine {
                 </div>
 
                 <!-- PAYMENT CONFIGURATION MODULE -->
-                <div style="background: rgba(255, 204, 0, 0.05); border: 1px solid #ffcc00; padding: 1.5rem; border-radius: 20px; margin-bottom: 2rem;">
-                    <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; letter-spacing: 2px; color: #ffcc00;">GATEWAY_CONFIGURATION</h3>
+                <div style="background: rgba(0, 229, 255, 0.03); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 20px; margin-bottom: 2rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; letter-spacing: 2px; color: var(--accent-primary);">GATEWAY_UPLINK</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div class="input-block"><label style="font-size: 0.5rem;">UPI_ID</label><input id="nxa_pay_upi" type="text" value="${payConfig.upi}" placeholder="e.g. nxa@ybl" style="padding: 10px; font-size: 0.8rem;"></div>
-                        <div class="input-block"><label style="font-size: 0.5rem;">ACCESS_FEE (₹)</label><input id="nxa_pay_fee" type="number" value="${payConfig.fee}" placeholder="e.g. 999" style="padding: 10px; font-size: 0.8rem;"></div>
-                        <div class="input-block" style="grid-column: span 2;"><label style="font-size: 0.5rem;">QR_CODE_UPLINK (IMAGE URL)</label><input id="nxa_pay_qr" type="text" value="${payConfig.qr}" placeholder="https://..." style="padding: 10px; font-size: 0.8rem;"></div>
+                        <div class="input-block"><label style="font-size: 0.5rem;">QR_CODE_UPLINK</label><input id="nxa_pay_qr" type="text" value="${payConfig.qr}" placeholder="https://..." style="padding: 10px; font-size: 0.8rem;"></div>
                     </div>
-                    <button onclick="window.NXASetPaymentConfig()" style="width: 100%; margin-top: 1.5rem; background: #ffcc00; color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; cursor: pointer;">INITIALIZE_PAYMENT_NODE</button>
+                    <button onclick="window.NXASetPaymentConfig()" style="width: 100%; margin-top: 1.5rem; background: var(--accent-primary); color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; cursor: pointer;">INITIALIZE_UPLINK</button>
+                    <p style="font-size: 0.45rem; color: var(--text-dim); margin-top: 10px; text-align: center;">Note: Prices are now managed individually per course module below.</p>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
@@ -2349,18 +2359,21 @@ class NXAEngine {
                 <div style="display: grid; gap: 1rem;">
                     ${courses.length === 0 ? `<div style="text-align:center; color: var(--text-dim); padding: 3rem; border: 1px dashed var(--glass-border); border-radius: 16px;">No courses yet. Tap + NEW to create one.</div>` : ''}
                     ${courses.map(c => `
-                        <div style="background: var(--glass-bg); border-radius: 16px; border: 1px solid var(--glass-border); overflow: hidden;">
-                            <div style="padding: 1rem; display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div style="background: var(--glass-bg); border-radius: 16px; border: 1px solid var(--glass-border); overflow: hidden; position: relative;">
+                            <div style="padding: 1.2rem; display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div style="flex:1;">
-                                    <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 800;">${c.domain}</span>
+                                    <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">${c.domain.toUpperCase()}</span>
                                     <h3 style="margin: 4px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
-                                    <div style="font-size: 0.55rem; color: #ffcc00; font-weight: 900;">₹${c.price || '0'}</div>
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                                        <div style="font-size: 0.65rem; color: #ffcc00; font-weight: 900; background: rgba(255,204,0,0.1); padding: 2px 8px; border-radius: 4px;">₹${c.price || '999'}</div>
+                                        <span style="font-size: 0.5rem; color: var(--text-dim);">ID: ${c.id}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div style="display: flex; border-top: 1px solid var(--glass-border);">
-                                <button onclick="window.NXAOpenCourseEditor('${c.id}')" style="flex:1; padding: 8px; background: none; border: none; color: var(--accent-primary); font-size: 0.6rem; font-weight: 800; cursor: pointer; border-right: 1px solid var(--glass-border);">✏️ EDIT CONTENT</button>
-                                <button onclick="window.NXAShowAssignModal('${c.id}')" style="flex:1; padding: 8px; background: none; border: none; color: #fff; font-size: 0.6rem; font-weight: 800; cursor: pointer; border-right: 1px solid var(--glass-border);">👥 ASSIGN</button>
-                                <button onclick="window.NXADeleteCourse('${c.id}')" style="flex:1; padding: 8px; background: none; border: none; color: #ff4545; font-size: 0.6rem; font-weight: 800; cursor: pointer;">🗑 DEL</button>
+                            <div style="display: flex; border-top: 1px solid var(--glass-border); background: rgba(255,255,255,0.02);">
+                                <button onclick="window.NXAOpenCourseEditor('${c.id}')" style="flex:1; padding: 12px; background: none; border: none; color: var(--accent-primary); font-size: 0.6rem; font-weight: 800; cursor: pointer; border-right: 1px solid var(--glass-border);">✏️ EDIT_PRICE_AND_CONTENT</button>
+                                <button onclick="window.NXAShowAssignModal('${c.id}')" style="flex:1; padding: 12px; background: none; border: none; color: #fff; font-size: 0.6rem; font-weight: 800; cursor: pointer; border-right: 1px solid var(--glass-border);">👥 ASSIGN</button>
+                                <button onclick="window.NXADeleteCourse('${c.id}')" style="flex:1; padding: 12px; background: none; border: none; color: #ff4545; font-size: 0.6rem; font-weight: 800; cursor: pointer;">🗑 PURGE</button>
                             </div>
                         </div>
                     `).join('')}
