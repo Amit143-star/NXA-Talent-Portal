@@ -361,6 +361,30 @@ window.NXAInitAttendance = (email) => {
     }, 100);
 };
 
+window.NXADeployProject = () => {
+    const title = document.getElementById('p_title').value;
+    const image = document.getElementById('p_image').value;
+    const info = document.getElementById('p_info').value;
+    const source = document.getElementById('p_source').value;
+    const dataset = document.getElementById('p_dataset').value;
+
+    if(!title) return alert('Project Title is required.');
+
+    const projects = JSON.parse(localStorage.getItem('nxa_industrial_projects')) || [];
+    projects.unshift({ title, image, info, source, dataset, createdAt: new Date().toLocaleString() });
+    localStorage.setItem('nxa_industrial_projects', JSON.stringify(projects));
+    
+    AppState.setView('projects');
+};
+
+window.NXADeleteProject = (idx) => {
+    if(!confirm('TERMINATE_PROJECT_NODE?')) return;
+    const projects = JSON.parse(localStorage.getItem('nxa_industrial_projects')) || [];
+    projects.splice(idx, 1);
+    localStorage.setItem('nxa_industrial_projects', JSON.stringify(projects));
+    AppState.setView('projects');
+};
+
 window.NXACreateCourse = async () => {
     const title = document.getElementById('new_c_title').value.trim();
     const domain = document.getElementById('new_c_domain').value.trim();
@@ -1481,7 +1505,7 @@ class NXAEngine {
                             <div class="input-block"><label style="font-size: 0.5rem;">SOURCE_CODE_UPLINK</label><input id="p_source" type="text" placeholder="Github/GitLab Link" style="padding: 10px; font-size: 0.8rem;"></div>
                             <div class="input-block"><label style="font-size: 0.5rem;">DATASET_ARCHIVE</label><input id="p_dataset" type="text" placeholder="Dataset URL" style="padding: 10px; font-size: 0.8rem;"></div>
                         </div>
-                        <button id="deployProject" style="width: 100%; margin-top: 1.5rem; background: var(--accent-primary); color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; letter-spacing: 1px; cursor: pointer;">MANIFEST_PROJECT</button>
+                        <button onclick="window.NXADeployProject()" style="width: 100%; margin-top: 1.5rem; background: var(--accent-primary); color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 900; letter-spacing: 1px; cursor: pointer;">MANIFEST_PROJECT</button>
                     </div>
                 ` : ''}
 
@@ -1503,42 +1527,12 @@ class NXAEngine {
                                     <button onclick="window.open('${p.dataset}', '_blank')" style="background: rgba(0, 255, 106, 0.1); border: 1px solid #00ff6a; color: #00ff6a; padding: 8px; border-radius: 6px; font-size: 0.5rem; font-weight: 800; cursor: pointer;">DATASET</button>
                                 </div>
 
-                                ${isExecutive ? `<button onclick="window.NXA_PROJ.deleteProject(${idx})" style="width: 100%; height: 35px; background: rgba(255, 69, 69, 0.05); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.1); border-radius: 6px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">TERMINATE_NODE</button>` : ''}
+                                ${isExecutive ? `<button onclick="window.NXADeleteProject(${idx})" style="width: 100%; height: 35px; background: rgba(255, 69, 69, 0.05); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.1); border-radius: 6px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">TERMINATE_NODE</button>` : ''}
                             </div>
                         </div>
                     `).join('')}
                 </div>
             </section>
-            <script>
-                setTimeout(() => {
-                    const deployBtn = document.getElementById('deployProject');
-                    if(deployBtn) deployBtn.onclick = () => {
-                        const title = document.getElementById('p_title').value;
-                        const image = document.getElementById('p_image').value;
-                        const info = document.getElementById('p_info').value;
-                        const source = document.getElementById('p_source').value;
-                        const dataset = document.getElementById('p_dataset').value;
-
-                        if(!title) return alert('Project Title is required.');
-
-                        const projects = JSON.parse(localStorage.getItem('nxa_industrial_projects')) || [];
-                        projects.unshift({ title, image, info, source, dataset, createdAt: new Date().toLocaleString() });
-                        localStorage.setItem('nxa_industrial_projects', JSON.stringify(projects));
-                        
-                        AppState.setView('projects');
-                    };
-
-                    window.NXA_PROJ = {
-                        deleteProject: (idx) => {
-                            if(!confirm('TERMINATE_PROJECT_NODE?')) return;
-                            const projects = JSON.parse(localStorage.getItem('nxa_industrial_projects')) || [];
-                            projects.splice(idx, 1);
-                            localStorage.setItem('nxa_industrial_projects', JSON.stringify(projects));
-                            AppState.setView('projects');
-                        }
-                    };
-                }, 400);
-            </script>
         `;
     }
 
