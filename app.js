@@ -1185,10 +1185,41 @@ class NXAEngine {
         const title = document.getElementById('pay_course_title');
         const priceLabel = document.getElementById('pay_course_price');
         const confirmBtn = document.getElementById('confirm_pay_btn');
+        const qrContainer = document.getElementById('pay_qr_container');
 
         title.innerText = `FOR COURSE: ${course.title.toUpperCase()}`;
         priceLabel.innerText = `₹${price}`;
         confirmBtn.onclick = () => window.NXAConfirmPayment(courseId);
+        
+        // DYNAMIC QR GENERATION (UPI PROTOCOL)
+        const payConfig = JSON.parse(localStorage.getItem('nxa_payment_config')) || { upi: '' };
+        qrContainer.innerHTML = ''; // Reset
+        
+        if (payConfig.qr && payConfig.qr.startsWith('http')) {
+            qrContainer.innerHTML = `<img src="${payConfig.qr}" style="width: 180px; height: 180px; background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 10px;">`;
+        } else {
+            // Generate UPI QR
+            const upiUrl = `upi://pay?pa=${payConfig.upi}&pn=NXA_TALENT&am=${price}&cu=INR`;
+            const qrDiv = document.createElement('div');
+            qrDiv.id = 'dynamic_upi_qr';
+            qrDiv.style.background = '#fff';
+            qrDiv.style.padding = '10px';
+            qrDiv.style.borderRadius = '12px';
+            qrDiv.style.display = 'inline-block';
+            qrDiv.style.marginBottom = '10px';
+            qrContainer.appendChild(qrDiv);
+            
+            setTimeout(() => {
+                new QRCode(qrDiv, {
+                    text: upiUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            }, 100);
+        }
         
         modal.style.display = 'flex';
     }
@@ -1264,7 +1295,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.7</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v5.8</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
