@@ -971,6 +971,10 @@ class NXAEngine {
             const courseId = state.view.replace('course_editor_', '');
             return this.viewCourseEditor(state, courseId);
         }
+        if (state.view && state.view.startsWith('course_view_')) {
+            const courseId = state.view.replace('course_view_', '');
+            return this.viewCourseDetail(state, courseId);
+        }
     }
 
     viewRegister(state, isEditing = false) {
@@ -1848,12 +1852,13 @@ class NXAEngine {
                     <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; padding-bottom: 5rem;">
                         ${myCourses.map(c => `
                             <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 16px; position: relative; display: flex; justify-content: space-between; align-items: center;">
-                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent-primary);"></div>
+                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent-primary); border-radius: 4px 0 0 4px;"></div>
                                 <div>
                                     <span style="font-size: 0.5rem; color: var(--accent-primary); font-weight: 800; letter-spacing: 1px;">${c.domain.toUpperCase()}</span>
                                     <h3 style="margin: 4px 0; font-size: 1.1rem; color: #fff;">${c.title}</h3>
+                                    <span style="font-size: 0.55rem; color: var(--text-dim);">📹 ${(c.videos||[]).length} · 🔗 ${(c.refs||[]).length} · 📄 ${(c.docs||[]).length}</span>
                                 </div>
-                                <button class="btn-primary-lg" style="padding: 8px 15px; font-size: 0.6rem; height: fit-content;">RESUME</button>
+                                <button onclick="AppState.setView('course_view_${c.id}')" class="btn-primary-lg" style="padding: 8px 15px; font-size: 0.6rem; height: fit-content;">OPEN</button>
                             </div>
                         `).join('')}
                     </div>
@@ -1861,6 +1866,74 @@ class NXAEngine {
             </section>
         `;
     }
+
+    viewCourseDetail(state, courseId) {
+        const courses = this.getCourses();
+        const course = courses.find(c => c.id === courseId);
+        if (!course) return this.viewCourses(state);
+        const refs   = course.refs   || [];
+        const videos = course.videos || [];
+        const docs   = course.docs   || [];
+        const sectionStyle = 'background: var(--glass-bg); padding: 1.2rem; border-radius: 16px; border: 1px solid var(--glass-border); margin-bottom: 1rem;';
+        const labelStyle   = 'color: var(--accent-primary); font-size: 0.55rem; font-weight: 900; letter-spacing: 2px; display: block; margin-bottom: 0.8rem;';
+
+        return `
+            <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; padding-bottom: 120px;">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                    <button onclick="AppState.setView('courses')" style="background: none; border: none; color: var(--accent-primary); font-size: 1.3rem; cursor: pointer;">←</button>
+                    <div>
+                        <h2 style="font-family: var(--font-heading); font-size: 1.3rem; margin: 0; letter-spacing: 1px;">${course.title}</h2>
+                        <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 800;">${course.domain}</span>
+                    </div>
+                </div>
+
+                ${course.desc ? `<p style="color: var(--text-dim); font-size: 0.8rem; line-height: 1.6; margin-bottom: 1.2rem; padding: 1rem; background: var(--glass-bg); border-radius: 12px; border: 1px solid var(--glass-border);">${course.desc}</p>` : ''}
+
+                ${videos.length > 0 ? `
+                <div style="${sectionStyle}">
+                    <span style="${labelStyle}">📹 VIDEO CLASSES</span>
+                    ${videos.map(v => `
+                        <div style="margin-bottom: 1.2rem;">
+                            <p style="font-size: 0.75rem; font-weight: 700; margin-bottom: 6px;">${v.title}</p>
+                            <div style="position:relative; padding-bottom: 56.25%; height: 0; border-radius: 10px; overflow: hidden;">
+                                <iframe src="https://www.youtube.com/embed/${v.ytId}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" allowfullscreen></iframe>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+
+                ${refs.length > 0 ? `
+                <div style="${sectionStyle}">
+                    <span style="${labelStyle}">🔗 REFERENCES</span>
+                    ${refs.map(r => `
+                        <a href="${r.url}" target="_blank" style="display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(0,242,255,0.04); border: 1px solid rgba(0,242,255,0.12); border-radius: 10px; margin-bottom: 8px; text-decoration: none;">
+                            <span style="font-size: 1rem;">🔗</span>
+                            <span style="color: var(--accent-primary); font-size: 0.75rem; font-weight: 700;">${r.title}</span>
+                        </a>
+                    `).join('')}
+                </div>` : ''}
+
+                ${docs.length > 0 ? `
+                <div style="${sectionStyle}">
+                    <span style="${labelStyle}">📄 DOCUMENTS</span>
+                    ${docs.map(d => `
+                        <a href="${d.url}" target="_blank" ${d.isFile ? `download="${d.title}"` : ''} style="display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(255,204,0,0.04); border: 1px solid rgba(255,204,0,0.12); border-radius: 10px; margin-bottom: 8px; text-decoration: none;">
+                            <span style="font-size: 1rem;">📎</span>
+                            <span style="color: #ffcc00; font-size: 0.75rem; font-weight: 700;">${d.title}</span>
+                        </a>
+                    `).join('')}
+                </div>` : ''}
+
+                ${videos.length === 0 && refs.length === 0 && docs.length === 0 ? `
+                    <div style="text-align: center; padding: 3rem; color: var(--text-dim); border: 1px dashed var(--glass-border); border-radius: 16px;">
+                        <span style="font-size: 2rem;">📭</span>
+                        <p style="margin-top: 1rem; font-size: 0.8rem;">No content added yet.</p>
+                    </div>
+                ` : ''}
+            </section>
+        `;
+    }
+
 
     viewCourseAdmin(state) {
         if (state.role !== 'admin' && state.user.email !== 'nxasupertalent@gmail.com') return this.viewHome(state);
