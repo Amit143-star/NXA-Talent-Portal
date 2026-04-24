@@ -314,15 +314,15 @@ window.NXASearchPunch = (term) => {
     punchList.innerHTML = filtered.map(s => {
         const att = (s.attendance || {});
         const done = att[todayStr] === true;
-        return \`<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding: 8px 12px; border-radius:8px; border:1px solid var(--glass-border);">
+        return `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding: 8px 12px; border-radius:8px; border:1px solid var(--glass-border);">
             <div>
-                <div style="font-size:0.65rem; color:#fff; font-weight:800;">\${s.fullname || s.email}</div>
-                <div style="font-size:0.45rem; color:var(--text-dim);">\${s.usn || s.email}</div>
+                <div style="font-size:0.65rem; color:#fff; font-weight:800;">${s.fullname || s.email}</div>
+                <div style="font-size:0.45rem; color:var(--text-dim);">${s.usn || s.email}</div>
             </div>
-            <button onclick="window.NXA_ATT_PUNCH('\${s.email}', this)" style="background:\${done ? 'rgba(0,255,106,0.2)' : 'var(--accent-primary)'}; color:\${done ? '#00ff6a' : '#000'}; border:none; padding:5px 12px; border-radius:6px; font-size:0.5rem; font-weight:900; cursor:pointer;">
-                \${done ? '✓ PRESENT' : 'PUNCH'}
+            <button onclick="window.NXA_ATT_PUNCH('${s.email}', this)" style="background:${done ? 'rgba(0,255,106,0.2)' : 'var(--accent-primary)'}; color:${done ? '#00ff6a' : '#000'}; border:none; padding:5px 12px; border-radius:6px; font-size:0.5rem; font-weight:900; cursor:pointer;">
+                ${done ? '✓ PRESENT' : 'PUNCH'}
             </button>
-        </div>\`;
+        </div>`;
     }).join('');
 };
 
@@ -349,7 +349,7 @@ window.NXAInitAttendance = (email) => {
         if (qrEl && typeof QRCode !== 'undefined') {
             qrEl.innerHTML = ''; // clear old
             new QRCode(qrEl, {
-                text: \`ATT|\${email}|NXA\`,
+                text: `ATT|${email}|NXA`,
                 width: 200, height: 200,
                 colorDark: '#000000', colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.H
