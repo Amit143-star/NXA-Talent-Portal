@@ -1426,7 +1426,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.2</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.3</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2239,8 +2239,39 @@ class NXAEngine {
                     </div>
                 `}
 
+                <!-- DIGITAL FINANCIAL DOSSIER (RECEIPTS) -->
+                <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(0, 255, 106, 0.2); margin-top: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
+                        <span style="font-size: 1.2rem;">🧾</span>
+                        <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">FINANCIAL_DOSSIER</h3>
+                    </div>
+                    
+                    ${(pd && pd.paid_courses && pd.paid_courses.length > 0) ? `
+                        <div style="display: grid; gap: 0.8rem;">
+                            ${pd.paid_courses.map(courseId => {
+                                const courses = window.NXA.getCourses();
+                                const c = courses.find(item => item.id === courseId);
+                                return `
+                                    <div style="background: rgba(0, 255, 106, 0.05); border: 1px solid rgba(0, 255, 106, 0.1); padding: 1rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${c ? c.title : 'Course_' + courseId}</div>
+                                            <div style="font-size: 0.5rem; color: var(--text-dim); margin-top: 2px;">INV_REF: NXA_${String(courseId).substring(0,8).toUpperCase()}</div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div style="font-size: 0.7rem; color: #00ff6a; font-weight: 900;">PAID ₹${c ? c.price : '---'}</div>
+                                            <div style="font-size: 0.45rem; color: var(--text-dim);">VERIFIED ✅</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    ` : `
+                        <div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No verified receipts Manifested.</div>
+                    `}
+                </div>
+
                 <!-- ULTRA-SLIM SESSION ACTION -->
-                <div style="display: none !important; background: rgba(255, 69, 69, 0.02); border: 1px solid rgba(255, 69, 69, 0.1); padding: 1rem; border-radius: 18px; justify-content: space-between; align-items: center;">
+                <div style="display: none !important; background: rgba(255, 69, 69, 0.02); border: 1px solid rgba(255, 69, 69, 0.1); padding: 1rem; border-radius: 18px; justify-content: space-between; align-items: center; margin-top: 1rem;">
                     <span style="color: #ff4545; font-size: 0.55rem; font-weight: 900; letter-spacing: 1px;">CRITICAL_OVERRIDE</span>
                     <button id="perfLogoutBtn" style="background: #ff4545; color: #fff; border: none; padding: 10px 25px; border-radius: 30px; font-weight: 900; font-size: 0.75rem; cursor: pointer;">
                         TERMINATE_SESSION
@@ -2535,15 +2566,47 @@ class NXAEngine {
                     <div style="max-height: 200px; overflow-y: auto; display: grid; gap: 8px;">
                         ${(JSON.parse(localStorage.getItem('nxa_payment_logs')) || []).length === 0 ? `<div style="font-size: 0.6rem; color: var(--text-dim); text-align: center;">No transactions logged yet.</div>` : ''}
                         ${(JSON.parse(localStorage.getItem('nxa_payment_logs')) || []).map(log => `
-                            <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); font-size: 0.55rem;">
-                                <div style="display: flex; justify-content: space-between; color: var(--accent-primary); font-weight: 900; margin-bottom: 4px;">
+                            <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; border: 1px solid ${log.status === 'pending' ? 'rgba(255, 204, 0, 0.2)' : 'rgba(255,255,255,0.05)'}; font-size: 0.55rem;">
+                                <div style="display: flex; justify-content: space-between; color: ${log.status === 'pending' ? '#ffcc00' : 'var(--accent-primary)'}; font-weight: 900; margin-bottom: 4px;">
                                     <span>${log.email}</span>
                                     <span>₹${log.price}</span>
                                 </div>
-                                <div style="color: #fff;">ENROLLED: ${log.courseTitle}</div>
-                                <div style="font-size: 0.45rem; color: var(--text-dim); margin-top: 4px;">${new Date(log.timestamp).toLocaleString()}</div>
+                                <div style="color: #fff; font-weight: 600;">ENROLLED: ${log.courseTitle}</div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                                    <div style="font-size: 0.45rem; color: var(--text-dim);">${new Date(log.timestamp).toLocaleString()}</div>
+                                    ${log.status === 'pending' ? `
+                                        <button onclick="window.NXAApprovePayment('${log.email}', '${log.courseId}')" style="background: #00ff6a; color: #000; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.5rem; font-weight: 900; cursor: pointer; box-shadow: 0 0 10px rgba(0,255,106,0.2);">APPROVE</button>
+                                    ` : `<span style="color: #00ff6a; font-weight: 900;">VERIFIED ✅</span>`}
+                                </div>
                             </div>
                         `).join('')}
+                    </div>
+                </div>
+
+                <!-- VERIFIED PAYMENT VAULT (FOLDER) -->
+                <div style="background: rgba(0, 255, 106, 0.02); border: 1px solid rgba(0, 255, 106, 0.1); padding: 1.5rem; border-radius: 20px; margin-bottom: 2rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+                        <span style="font-size: 1.2rem;">📂</span>
+                        <h3 style="margin: 0; font-size: 0.75rem; letter-spacing: 2px; color: #00ff6a;">VERIFIED_PAYMENT_VAULT</h3>
+                    </div>
+                    <div style="display: grid; gap: 8px;">
+                        ${(() => {
+                            const logs = JSON.parse(localStorage.getItem('nxa_payment_logs')) || [];
+                            const verified = logs.filter(l => l.status === 'verified');
+                            if (verified.length === 0) return `<div style="font-size: 0.6rem; color: var(--text-dim); text-align: center;">No verified records found.</div>`;
+                            return verified.map(l => `
+                                <div style="background: rgba(0, 255, 106, 0.05); padding: 10px; border-radius: 10px; border: 1px solid rgba(0, 255, 106, 0.1); display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-size: 0.6rem; color: #fff; font-weight: 800;">${l.email}</div>
+                                        <div style="font-size: 0.45rem; color: var(--text-dim);">${l.courseTitle}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 0.6rem; color: #00ff6a; font-weight: 900;">₹${l.price}</div>
+                                        <div style="font-size: 0.4rem; color: var(--text-dim);">${new Date(l.verified_at || l.timestamp).toLocaleDateString()}</div>
+                                    </div>
+                                </div>
+                            `).join('');
+                        })()}
                     </div>
                 </div>
 
