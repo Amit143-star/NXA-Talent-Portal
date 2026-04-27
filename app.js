@@ -486,9 +486,27 @@ window.NXA_FINISH_ASSESSMENT = () => {
     });
 
     if (correct === NXA_ELITE_QUESTIONS.length) {
-        localStorage.setItem(`nxa_cert_${AppState.user.email}`, 'ELIGIBLE');
+        const userEmail = AppState.user.email;
+        const results = JSON.parse(localStorage.getItem(`nxa_scores_${userEmail}`)) || [];
+        results.push({
+            examTitle: 'ELITE_INDUSTRIAL_ASSESSMENT',
+            score: correct,
+            total: NXA_ELITE_QUESTIONS.length,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem(`nxa_scores_${userEmail}`, JSON.stringify(results));
+        localStorage.setItem(`nxa_cert_${userEmail}`, 'ELIGIBLE');
         AppState.setView('internship_assessment_result_pass');
     } else {
+        const userEmail = AppState.user.email;
+        const results = JSON.parse(localStorage.getItem(`nxa_scores_${userEmail}`)) || [];
+        results.push({
+            examTitle: 'ELITE_INDUSTRIAL_ASSESSMENT',
+            score: correct,
+            total: NXA_ELITE_QUESTIONS.length,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem(`nxa_scores_${userEmail}`, JSON.stringify(results));
         alert(`ASSESSMENT_FAILED: You scored ${correct}/${NXA_ELITE_QUESTIONS.length}. Requirement: 100% correct answers for Certificate.`);
         AppState.setView('internships');
     }
@@ -498,6 +516,94 @@ window.NXA_GEN_CERT = () => {
     const cert = document.getElementById('nxa_certificate_node');
     cert.style.display = 'flex';
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+};
+
+window.NXA_DOWNLOAD_RECEIPT = (courseId) => {
+    const courses = window.NXA.getCourses();
+    const c = courses.find(item => item.id === courseId);
+    const user = AppState.user;
+    
+    const receiptHtml = `
+        <html>
+        <head>
+            <title>NXA_RECEIPT_${courseId}</title>
+            <style>
+                body { font-family: 'Outfit', sans-serif; background: #000; color: #fff; padding: 40px; }
+                .receipt { border: 1px solid #00ff6a; padding: 40px; border-radius: 20px; max-width: 500px; margin: auto; }
+                .header { text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; margin-bottom: 20px; }
+                .row { display: flex; justify-content: space-between; margin: 15px 0; font-size: 14px; }
+                .label { color: #888; }
+                .val { font-weight: 900; }
+                .footer { text-align: center; margin-top: 40px; font-size: 10px; color: #555; }
+            </style>
+        </head>
+        <body>
+            <div class="receipt">
+                <div class="header">
+                    <h1 style="margin:0; font-size: 24px; color: #00ff6a;">NXA TALENT</h1>
+                    <p style="font-size: 10px; letter-spacing: 2px;">OFFICIAL INDUSTRIAL RECEIPT</p>
+                </div>
+                <div class="row"><span class="label">INV_REF:</span><span class="val">NXA_${courseId.toUpperCase()}</span></div>
+                <div class="row"><span class="label">STUDENT:</span><span class="val">${user.name}</span></div>
+                <div class="row"><span class="label">EMAIL:</span><span class="val">${user.email}</span></div>
+                <div class="row"><span class="label">COURSE:</span><span class="val">${c ? c.title : 'Course_' + courseId}</span></div>
+                <div class="row"><span class="label">AMOUNT:</span><span class="val" style="color: #00ff6a;">₹${c ? c.price : '---'}</span></div>
+                <div class="row"><span class="label">STATUS:</span><span class="val" style="color: #00ff6a;">VERIFIED_PAID ✓</span></div>
+                <div class="row"><span class="label">DATE:</span><span class="val">${new Date().toLocaleString()}</span></div>
+                <div class="footer">
+                    THIS IS A DIGITALLY GENERATED INDUSTRIAL RECEIPT. NO SIGNATURE REQUIRED.<br>
+                    © 2026 NXA TALENT INDUSTRIAL CORE.
+                </div>
+                <button onclick="window.print()" style="width:100%; margin-top:20px; padding:10px; background:#00ff6a; border:none; border-radius:8px; font-weight:900; cursor:pointer;">PRINT_PDF</button>
+            </div>
+        </body>
+        </html>
+    `;
+    const win = window.open('', '_blank');
+    win.document.write(receiptHtml);
+    win.document.close();
+};
+
+window.NXA_VIEW_CERTIFICATE = () => {
+    const user = AppState.user;
+    const certHtml = `
+        <html>
+        <head>
+            <title>NXA_CERTIFICATE_${user.name}</title>
+            <style>
+                body { font-family: 'Outfit', sans-serif; background: #050505; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                .cert { background: #fff; color: #000; padding: 60px; border: 20px double #000; text-align: center; box-shadow: 0 0 50px rgba(255,255,255,0.1); max-width: 800px; position: relative; }
+                .logo { font-size: 2rem; font-weight: 900; letter-spacing: 5px; }
+                .title { font-size: 1.2rem; margin: 20px 0; letter-spacing: 3px; font-weight: 800; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 10px 0; }
+                .name { font-size: 3rem; font-family: sans-serif; text-transform: uppercase; margin: 30px 0; text-decoration: underline; }
+                .footer { display: flex; justify-content: space-between; margin-top: 60px; font-size: 0.8rem; font-weight: 900; }
+                @media print { .no-print { display: none; } }
+            </style>
+        </head>
+        <body>
+            <div class="cert">
+                <div class="logo">NXA TALENT</div>
+                <div class="title">INDUSTRIAL CORE CERTIFICATION</div>
+                <p>This is to certify that</p>
+                <div class="name">${user.name}</div>
+                <p style="max-width: 500px; margin: 0 auto; line-height: 1.6;">
+                    Has successfully manifested 100% accuracy in the <b>Industrial Talent Elite Assessment</b> 
+                    covering Distributed Systems, Neural Architectures, and Multi-Node Synchronization.
+                </p>
+                <div class="footer">
+                    <div>ID: ${user.email}</div>
+                    <div>DATE: ${new Date().toDateString()}</div>
+                </div>
+                <div class="no-print" style="margin-top: 40px;">
+                    <button onclick="window.print()" style="padding: 12px 30px; background: #000; color: #fff; border: none; border-radius: 8px; font-weight: 900; cursor: pointer;">DOWNLOAD_MANIFEST</button>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+    const win = window.open('', '_blank');
+    win.document.write(certHtml);
+    win.document.close();
 };
 
 window.NXASetPaymentConfig = async () => {
@@ -1426,7 +1532,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.6</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.7</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2259,7 +2365,7 @@ class NXAEngine {
                                         </div>
                                         <div style="text-align: right;">
                                             <div style="font-size: 0.7rem; color: #00ff6a; font-weight: 900;">PAID ₹${c ? c.price : '---'}</div>
-                                            <div style="font-size: 0.45rem; color: var(--text-dim);">VERIFIED ✓</div>
+                                            <button onclick="window.NXA_DOWNLOAD_RECEIPT('${courseId}')" style="background: rgba(0, 255, 106, 0.1); color: #00ff6a; border: 1px solid rgba(0, 255, 106, 0.3); padding: 4px 8px; border-radius: 4px; font-size: 0.45rem; font-weight: 900; margin-top: 4px; cursor: pointer;">DOWNLOAD</button>
                                         </div>
                                     </div>
                                 `;
@@ -2268,6 +2374,55 @@ class NXAEngine {
                     ` : `
                         <div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No verified receipts Manifested.</div>
                     `}
+                </div>
+
+                <!-- EXAM DOSSIER (FOLDER) -->
+                <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(255, 204, 0, 0.15); margin-top: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
+                        <span style="font-size: 1.2rem;">📊</span>
+                        <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">EXAM_DOSSIER</h3>
+                    </div>
+                    ${(() => {
+                        const results = JSON.parse(localStorage.getItem(`nxa_scores_${state.user.email}`)) || [];
+                        if (results.length === 0) return `<div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No assessment data found.</div>`;
+                        return `
+                            <div style="display: grid; gap: 0.8rem;">
+                                ${results.map(r => `
+                                    <div style="background: rgba(255, 204, 0, 0.05); border: 1px solid rgba(255, 204, 0, 0.1); padding: 1rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${r.examTitle}</div>
+                                            <div style="font-size: 0.45rem; color: var(--text-dim);">${new Date(r.timestamp).toLocaleDateString()}</div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div style="font-size: 0.8rem; color: #ffcc00; font-weight: 900;">${r.score}/${r.total}</div>
+                                            <div style="font-size: 0.4rem; color: var(--text-dim);">${r.score === r.total ? 'CERTIFIED ✓' : 'MANIFESTED'}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    })()}
+                </div>
+
+                <!-- CREDENTIAL NEXUS (CERTIFICATES) -->
+                <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(0, 242, 255, 0.15); margin-top: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
+                        <span style="font-size: 1.2rem;">📜</span>
+                        <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">CREDENTIAL_NEXUS</h3>
+                    </div>
+                    ${(() => {
+                        const hasCert = localStorage.getItem(`nxa_cert_${state.user.email}`) === 'ELIGIBLE';
+                        if (!hasCert) return `<div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No certifications manifested. Complete ELITE assessment to unlock.</div>`;
+                        return `
+                            <div style="background: rgba(0, 242, 255, 0.05); border: 1px solid rgba(0, 242, 255, 0.1); padding: 1.2rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-size: 0.8rem; color: #fff; font-weight: 900;">INDUSTRIAL_CORE_V1</div>
+                                    <div style="font-size: 0.5rem; color: var(--accent-primary); letter-spacing: 1px;">ELITE_QUALIFICATION</div>
+                                </div>
+                                <button onclick="window.NXA_VIEW_CERTIFICATE()" style="background: var(--accent-primary); color: #000; border: none; padding: 8px 15px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">VIEW_CERT</button>
+                            </div>
+                        `;
+                    })()}
                 </div>
 
                 <!-- ULTRA-SLIM SESSION ACTION -->
