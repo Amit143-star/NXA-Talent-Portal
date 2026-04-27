@@ -667,16 +667,22 @@ window.NXAConfirmPayment = async (courseId) => {
     const s = profiles[email];
     if(!s) return alert('IDENTITY_SYNC_ERROR: Please re-login.');
 
-    if (!s.pending_courses) s.pending_courses = [];
-    if (!s.pending_courses.includes(courseId)) {
-        s.pending_courses.push(courseId);
+    // INSTANT UNLOCK PROTOCOL (v8.9)
+    if (!s.paid_courses) s.paid_courses = [];
+    if (!s.paid_courses.includes(courseId)) {
+        s.paid_courses.push(courseId);
     }
-    s.last_payment_request = new Date().toISOString();
     
+    // Remove from pending if exists
+    if (s.pending_courses) {
+        s.pending_courses = s.pending_courses.filter(id => id !== courseId);
+    }
+    
+    s.last_payment_timestamp = new Date().toISOString();
     profiles[email] = s;
     localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
     
-    // LOG TRANSACTION FOR ADMIN OVERSIGHT
+    // LOG TRANSACTION FOR AUDIT
     const logs = JSON.parse(localStorage.getItem('nxa_payment_logs')) || [];
     const courses = window.NXA.getCourses();
     const course = courses.find(c => c.id === courseId);
@@ -686,7 +692,8 @@ window.NXAConfirmPayment = async (courseId) => {
         courseId: courseId,
         courseTitle: course ? course.title : 'Unknown',
         price: course ? course.price : '999',
-        status: 'pending',
+        status: 'verified',
+        type: 'INSTANT_MANIFEST',
         timestamp: new Date().toISOString()
     };
     
@@ -699,7 +706,7 @@ window.NXAConfirmPayment = async (courseId) => {
         await Cloud.set('nxa_broadcasts', 'payment_logs', { list: limitedLogs });
     }
     
-    alert('✅ PAYMENT_MANIFESTED: Request sent to Industrial Ledger. Unlocks upon Admin Verification.');
+    alert('✅ ACCESS_MANIFESTED: Course unit has been unlocked. Proceed to Industrial Learning.');
     AppState.setView('courses');
 };
 
@@ -1037,7 +1044,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v8.8 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v8.9 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1636,7 +1643,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.8</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.9</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2405,7 +2412,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.8</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.9</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
