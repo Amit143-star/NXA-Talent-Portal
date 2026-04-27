@@ -1426,7 +1426,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.5</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.6</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -1442,6 +1442,7 @@ class NXAEngine {
             </nav>
             <nav class="sidebar-nav" id="sidebar">
                 <div class="sidebar-item ${state.view === 'home' ? 'active' : ''}" data-view="home"><span class="icon">🏠</span> Home</div>
+                ${isStudent ? `
                 <div class="sidebar-item ${state.view === 'leetcode' ? 'active' : ''}" data-view="leetcode"><span class="icon">💻</span> Leet Code</div>
                 <div class="sidebar-item ${state.view === 'attendance' ? 'active' : ''}" data-view="attendance"><span class="icon">📅</span> Attendance</div>
                 <div class="sidebar-item ${state.view === 'projects' ? 'active' : ''}" data-view="projects"><span class="icon">📂</span> Projects</div>
