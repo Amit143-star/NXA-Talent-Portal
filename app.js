@@ -629,14 +629,22 @@ window.NXA_UPLOAD_AVATAR = (input) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
             const base64 = e.target.result;
-            const email = AppState.user.email;
+            const email = AppState.user.email.toLowerCase().trim();
             const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+            
             if (profiles[email]) {
                 profiles[email].profilePic = base64;
                 localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-                if (typeof Cloud !== 'undefined') await Cloud.set('nxa_student_profiles', email, profiles[email]);
-                alert('PROFILE_AVATAR_MANIFESTED');
+                
+                // Cloud Sync
+                if (typeof Cloud !== 'undefined') {
+                    await Cloud.set('nxa_student_profiles', email, profiles[email]);
+                }
+                
+                alert('PROFILE_AVATAR_MANIFESTED: Industrial identity updated.');
                 AppState.render(AppState);
+            } else {
+                alert('IDENTITY_ERROR: Profile not found. Please re-register.');
             }
         };
         reader.readAsDataURL(input.files[0]);
@@ -977,7 +985,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v8.4 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v8.5 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1576,7 +1584,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.4</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.5</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2345,7 +2353,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.3</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.5</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2353,11 +2361,7 @@ class NXAEngine {
                     </button>
                 </div>
 
-                <!-- COMPACT PROFILE CARD -->
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.4</span>
-                        </div>
-                    </div>
-                </div>
+
 
                 <!-- HIGH-DENSITY PROFILE CORE -->
                 <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--glass-border); margin-bottom: 1rem;">
