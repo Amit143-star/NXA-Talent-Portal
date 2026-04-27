@@ -2683,6 +2683,7 @@ class NXAEngine {
                     </div>
                 </div>
 
+                ${state.role === 'student' ? `
                 <!-- DOSSIER MANIFEST SHORTCUT -->
                 <div onclick="AppState.setView('register')" style="background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(0, 0, 0, 0.4)); border: 1px solid var(--accent-primary); padding: 1.5rem; border-radius: 24px; cursor: pointer; margin-bottom: 1.5rem; position: relative; overflow: hidden;">
                     <div style="position: absolute; top: -20px; right: -20px; font-size: 5rem; opacity: 0.05; transform: rotate(15deg);">📝</div>
@@ -2690,6 +2691,7 @@ class NXAEngine {
                     <h3 style="margin: 8px 0; font-size: 1.1rem; color: #fff;">MANIFEST_INDUSTRIAL_DOSSIER</h3>
                     <p style="color: var(--text-dim); font-size: 0.65rem; line-height: 1.4;">Complete your 21-field core identity to unlock full system permissions and certifications.</p>
                 </div>
+                ` : ''}
 
                 <div style="background: var(--glass-bg); padding: 1rem; border-radius: 20px; border: 1px solid var(--glass-border); display: flex; justify-content: space-around;">
                     <button onclick="AppState.setView('attendance')" style="background: none; border: none; color: #fff; font-size: 0.65rem; font-weight: 700; cursor: pointer;">ATTENDANCE</button>
