@@ -1953,7 +1953,7 @@ class NXAEngine {
         return `
             <section class="section" style="padding: 1rem; max-height: 100vh; overflow-y: auto; background: #000;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                    <h2 style="font-family: var(--font-heading); font-size: 1.5rem; margin:0; letter-spacing: 1px; color: #fff;">COMMAND_CENTER_v4</h2>
+                    <h2 style="font-family: var(--font-heading); font-size: 1.5rem; margin:0; letter-spacing: 1px; color: #fff;">COMMAND_CENTER_v4.1_STABLE</h2>
                     <button onclick="window.location.reload()" style="background: rgba(255,255,255,0.05); color: var(--text-dim); border: 1px solid var(--glass-border); padding: 8px 15px; border-radius: 8px; font-size: 0.55rem; font-weight: 800; cursor: pointer;">
                         FORCE_SYNC
                     </button>
