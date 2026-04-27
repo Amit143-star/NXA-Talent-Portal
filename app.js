@@ -538,7 +538,8 @@ window.NXA_DOWNLOAD_RECEIPT = (courseId) => {
             </style>
         </head>
         <body>
-            <script src="app.js?v=8.0"></script>
+            <link rel="stylesheet" href="style.css?v=8.2">
+            <script src="app.js?v=8.2"></script>
             <div class="receipt">
                 <div class="header">
                     <h1 style="margin:0; font-size: 24px; color: #00ff6a;">NXA TALENT</h1>
@@ -621,6 +622,35 @@ window.NXASetPaymentConfig = async () => {
     }
     alert('PAYMENT_MATRIX_CONFIGURED: Matrix updated across all nodes.');
     AppState.setView('course_admin');
+};
+
+window.NXA_UPLOAD_AVATAR = (input) => {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const base64 = e.target.result;
+            const email = AppState.user.email;
+            const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+            if (profiles[email]) {
+                profiles[email].profilePic = base64;
+                localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+                if (typeof Cloud !== 'undefined') await Cloud.set('nxa_student_profiles', email, profiles[email]);
+                alert('PROFILE_AVATAR_MANIFESTED');
+                AppState.render(AppState);
+            }
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+};
+
+window.NXA_TOGGLE_FOLDER = (id) => {
+    const f = document.getElementById('folder_' + id);
+    const icon = document.getElementById('folder_icon_' + id);
+    if (!f || !icon) return;
+    const isOpen = f.style.display === 'block';
+    f.style.display = isOpen ? 'none' : 'block';
+    icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+    icon.style.transition = '0.3s';
 };
 
 window.NXAConfirmPayment = async (courseId) => {
@@ -1546,7 +1576,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.1</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.2</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2415,45 +2445,6 @@ class NXAEngine {
                     </div>
                 </div>
             </section>
-            <script>
-                window.NXA_UPLOAD_AVATAR = (input) => {
-                    if (input.files && input.files[0]) {
-                        const reader = new FileReader();
-                        reader.onload = async (e) => {
-                            const base64 = e.target.result;
-                            const email = AppState.user.email;
-                            const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-                            if (profiles[email]) {
-                                profiles[email].profilePic = base64;
-                                localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-                                // Cloud Sync
-                                if (typeof Cloud !== 'undefined') await Cloud.set('nxa_student_profiles', email, profiles[email]);
-                                alert('PROFILE_AVATAR_MANIFESTED');
-                                AppState.render(AppState);
-                            }
-                        };
-                        reader.readAsDataURL(input.files[0]);
-                    }
-                };
-
-                window.NXA_TOGGLE_FOLDER = (id) => {
-                    const f = document.getElementById('folder_' + id);
-                    const icon = document.getElementById('folder_icon_' + id);
-                    const isOpen = f.style.display === 'block';
-                    f.style.display = isOpen ? 'none' : 'block';
-                    icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
-                    icon.style.transition = '0.3s';
-                };
-                
-                setTimeout(() => {
-                    const lbtn = document.getElementById('perfLogoutBtn');
-                    if (lbtn) lbtn.onclick = () => {
-                        if (confirm('NXA_SECURITY: Final confirmation to terminate matrix session?')) {
-                            AppState.logout();
-                        }
-                    };
-                }, 300);
-            </script>
         `;
     }
 
