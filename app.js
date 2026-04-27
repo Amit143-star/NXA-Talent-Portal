@@ -538,7 +538,7 @@ window.NXA_DOWNLOAD_RECEIPT = (courseId) => {
             </style>
         </head>
         <body>
-            <script src="app.js?v=7.8"></script>
+            <script src="app.js?v=8.0"></script>
             <div class="receipt">
                 <div class="header">
                     <h1 style="margin:0; font-size: 24px; color: #00ff6a;">NXA TALENT</h1>
@@ -947,7 +947,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v7.9 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v8.0 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1065,7 +1065,7 @@ class NXAEngine {
         
         if(status) {
             status.innerText = 'CLOUD_LIVE';
-            status.style.color = 'var(--text-dim)';
+            status.color = 'var(--text-dim)';
         }
     }
 
@@ -1546,7 +1546,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.9</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.0</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2315,7 +2315,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.0</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2334,120 +2334,117 @@ class NXAEngine {
                     </div>
                 </div>
 
-                <!-- GRID DATA (Condensed) -->
-                ${!pd ? `
-                    <div style="background: rgba(255, 204, 0, 0.05); padding: 3rem 2rem; border-radius: 24px; text-align: center; border: 1px dashed rgba(255, 204, 0, 0.3); margin-top: 1rem;">
-                        <div style="font-size: 3rem; margin-bottom: 1.5rem; filter: grayscale(1); opacity: 0.5;">📄</div>
-                        <h3 style="color: #fff; font-family: var(--font-heading); font-size: 1.2rem; margin-bottom: 0.5rem;">IDENTITY_MANIFEST_PENDING</h3>
-                        <p style="color: var(--text-dim); font-size: 0.75rem; max-width: 250px; margin: 0 auto 2rem; line-height: 1.6;">Your industrial student dossier has not been synchronized with the core matrix.</p>
-                        <button onclick="AppState.setView('register')" class="btn-primary" style="padding: 12px 30px; font-size: 0.7rem; border-radius: 12px;">
-                            INITIALIZE_REGISTRATION
-                        </button>
-                    </div>
-                ` : `
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                        <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 18px; border: 1px solid var(--glass-border);">
-                            <span style="display: block; font-size: 0.5rem; color: var(--accent-primary); font-weight: 900; margin-bottom: 0.8rem;">ACADEMIC</span>
-                            <div class="dossier-field" style="margin-bottom: 8px;"><span class="df-label" style="font-size: 0.6rem;">USN</span><span style="color: #fff; font-size: 0.8rem; font-weight: 800;">${pd.usn || '-'}</span></div>
-                            <div class="dossier-field"><span class="df-label" style="font-size: 0.6rem;">CGPA</span><span style="color: #00ff6a; font-size: 0.8rem; font-weight: 800;">${pd.cgpa || '-'}</span></div>
-                        </div>
-                        <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 18px; border: 1px solid var(--glass-border);">
-                            <span style="display: block; font-size: 0.5rem; color: var(--accent-primary); font-weight: 900; margin-bottom: 0.8rem;">METRICS</span>
-                            <div class="dossier-field" style="margin-bottom: 8px;"><span class="df-label" style="font-size: 0.6rem;">YEAR</span><span style="color: #fff; font-size: 0.8rem;">${pd.passingyear || '-'}</span></div>
-                            <div class="dossier-field"><span class="df-label" style="font-size: 0.6rem;">DEPT</span><span style="color: #fff; font-size: 0.7rem; opacity: 0.7;">${pd.branch || '-'}</span></div>
-                        </div>
-                    </div>
-                `}
-
-                <!-- FINANCIAL VAULT (INTEGRATED) -->
-                <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(0, 255, 106, 0.15); margin-top: 1rem;">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
-                        <span style="font-size: 1.2rem;">💼</span>
-                        <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">FINANCIAL_VAULT</h3>
-                    </div>
-                    
-                    ${(pd && pd.paid_courses && pd.paid_courses.length > 0) ? `
-                        <div style="display: grid; gap: 0.8rem;">
-                            ${pd.paid_courses.map(courseId => {
-                                const courses = window.NXA.getCourses();
-                                const c = courses.find(item => item.id === courseId);
-                                return `
-                                    <div style="background: rgba(0, 255, 106, 0.05); border: 1px solid rgba(0, 255, 106, 0.1); padding: 1rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-                                        <div>
-                                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${c ? c.title : 'Course_' + courseId}</div>
-                                            <div style="font-size: 0.5rem; color: var(--text-dim); margin-top: 2px;">INV_REF: NXA_${String(courseId).substring(0,8).toUpperCase()}</div>
-                                        </div>
-                                        <div style="text-align: right;">
-                                            <div style="font-size: 0.7rem; color: #00ff6a; font-weight: 900;">PAID ₹${c ? c.price : '---'}</div>
-                                            <button onclick="window.NXA_DOWNLOAD_RECEIPT('${courseId}')" style="background: rgba(0, 255, 106, 0.1); color: #00ff6a; border: 1px solid rgba(0, 255, 106, 0.3); padding: 4px 8px; border-radius: 4px; font-size: 0.45rem; font-weight: 900; margin-top: 4px; cursor: pointer;">DOWNLOAD</button>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    ` : `
-                        <div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No verified receipts Manifested.</div>
-                    `}
+                <!-- DOSSIER SEGMENT CONTROLLER (TABS) -->
+                <div style="display: flex; background: rgba(255,255,255,0.03); padding: 5px; border-radius: 12px; border: 1px solid var(--glass-border); margin-bottom: 1rem;">
+                    <button onclick="window.NXA_SET_SELF_TAB('fin')" id="tab_fin" style="flex: 1; padding: 10px; border: none; border-radius: 8px; background: var(--accent-primary); color: #000; font-size: 0.6rem; font-weight: 900; cursor: pointer; transition: 0.3s;">FINANCIALS</button>
+                    <button onclick="window.NXA_SET_SELF_TAB('exam')" id="tab_exam" style="flex: 1; padding: 10px; border: none; border-radius: 8px; background: none; color: var(--text-dim); font-size: 0.6rem; font-weight: 900; cursor: pointer; transition: 0.3s;">EXAMS</button>
+                    <button onclick="window.NXA_SET_SELF_TAB('cert')" id="tab_cert" style="flex: 1; padding: 10px; border: none; border-radius: 8px; background: none; color: var(--text-dim); font-size: 0.6rem; font-weight: 900; cursor: pointer; transition: 0.3s;">CREDENTIALS</button>
                 </div>
 
-                <!-- EXAM DOSSIER (FOLDER) -->
-                <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(255, 204, 0, 0.15); margin-top: 1rem;">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
-                        <span style="font-size: 1.2rem;">📊</span>
-                        <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">EXAM_DOSSIER</h3>
-                    </div>
-                    ${(() => {
-                        const results = JSON.parse(localStorage.getItem(`nxa_scores_${state.user.email}`)) || [];
-                        if (results.length === 0) return `<div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No assessment data found.</div>`;
-                        return `
+                <!-- SEGMENT 1: FINANCIAL VAULT -->
+                <div id="segment_fin" style="display: block;">
+                    <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(0, 255, 106, 0.15);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
+                            <span style="font-size: 1.2rem;">💼</span>
+                            <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">FINANCIAL_VAULT</h3>
+                        </div>
+                        ${(pd && pd.paid_courses && pd.paid_courses.length > 0) ? `
                             <div style="display: grid; gap: 0.8rem;">
-                                ${results.map(r => `
-                                    <div style="background: rgba(255, 204, 0, 0.05); border: 1px solid rgba(255, 204, 0, 0.1); padding: 1rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-                                        <div>
-                                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${r.examTitle}</div>
-                                            <div style="font-size: 0.45rem; color: var(--text-dim);">${new Date(r.timestamp).toLocaleDateString()}</div>
+                                ${pd.paid_courses.map(courseId => {
+                                    const courses = window.NXA.getCourses();
+                                    const c = courses.find(item => item.id === courseId);
+                                    return `
+                                        <div style="background: rgba(0, 255, 106, 0.05); border: 1px solid rgba(0, 255, 106, 0.1); padding: 1rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                            <div>
+                                                <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${c ? c.title : 'Course_' + courseId}</div>
+                                                <div style="font-size: 0.4rem; color: var(--text-dim); margin-top: 2px;">INV_REF: NXA_${String(courseId).toUpperCase()}</div>
+                                            </div>
+                                            <button onclick="window.NXA_DOWNLOAD_RECEIPT('${courseId}')" style="background: #00ff6a; color: #000; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.55rem; font-weight: 900; cursor: pointer;">RECEIPT</button>
                                         </div>
-                                        <div style="text-align: right;">
-                                            <div style="font-size: 0.8rem; color: #ffcc00; font-weight: 900;">${r.score}/${r.total}</div>
-                                            <div style="font-size: 0.4rem; color: var(--text-dim);">${r.score === r.total ? 'CERTIFIED ✓' : 'MANIFESTED'}</div>
-                                        </div>
-                                    </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
-                        `;
-                    })()}
-                </div>
-
-                <!-- CREDENTIAL NEXUS (CERTIFICATES) -->
-                <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(0, 242, 255, 0.15); margin-top: 1rem;">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
-                        <span style="font-size: 1.2rem;">📜</span>
-                        <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">CREDENTIAL_NEXUS</h3>
+                        ` : `
+                            <div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No verified receipts Manifested.</div>
+                        `}
                     </div>
-                    ${(() => {
-                        const hasCert = localStorage.getItem(`nxa_cert_${state.user.email}`) === 'ELIGIBLE';
-                        if (!hasCert) return `<div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No certifications manifested. Complete ELITE assessment to unlock.</div>`;
-                        return `
-                            <div style="background: rgba(0, 242, 255, 0.05); border: 1px solid rgba(0, 242, 255, 0.1); padding: 1.2rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <div style="font-size: 0.8rem; color: #fff; font-weight: 900;">INDUSTRIAL_CORE_V1</div>
-                                    <div style="font-size: 0.5rem; color: var(--accent-primary); letter-spacing: 1px;">ELITE_QUALIFICATION</div>
-                                </div>
-                                <button onclick="window.NXA_VIEW_CERTIFICATE()" style="background: var(--accent-primary); color: #000; border: none; padding: 8px 15px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">VIEW_CERT</button>
-                            </div>
-                        `;
-                    })()}
                 </div>
 
-                <!-- ULTRA-SLIM SESSION ACTION -->
-                <div style="display: none !important; background: rgba(255, 69, 69, 0.02); border: 1px solid rgba(255, 69, 69, 0.1); padding: 1rem; border-radius: 18px; justify-content: space-between; align-items: center; margin-top: 1rem;">
-                    <span style="color: #ff4545; font-size: 0.55rem; font-weight: 900; letter-spacing: 1px;">CRITICAL_OVERRIDE</span>
-                    <button id="perfLogoutBtn" style="background: #ff4545; color: #fff; border: none; padding: 10px 25px; border-radius: 30px; font-weight: 900; font-size: 0.75rem; cursor: pointer;">
-                        TERMINATE_SESSION
-                    </button>
+                <!-- SEGMENT 2: EXAM DOSSIER -->
+                <div id="segment_exam" style="display: none;">
+                    <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(255, 204, 0, 0.15);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
+                            <span style="font-size: 1.2rem;">📊</span>
+                            <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">EXAM_DOSSIER</h3>
+                        </div>
+                        ${(() => {
+                            const results = JSON.parse(localStorage.getItem(`nxa_scores_${state.user.email}`)) || [];
+                            if (results.length === 0) return `<div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No assessment data found.</div>`;
+                            return `
+                                <div style="display: grid; gap: 0.8rem;">
+                                    ${results.map(r => `
+                                        <div style="background: rgba(255, 204, 0, 0.05); border: 1px solid rgba(255, 204, 0, 0.1); padding: 1rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                            <div>
+                                                <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${r.examTitle}</div>
+                                                <div style="font-size: 0.45rem; color: var(--text-dim);">${new Date(r.timestamp).toLocaleDateString()}</div>
+                                            </div>
+                                            <div style="font-size: 0.8rem; color: #ffcc00; font-weight: 900;">${r.score}/${r.total}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `;
+                        })()}
+                    </div>
+                </div>
+
+                <!-- SEGMENT 3: CREDENTIAL NEXUS -->
+                <div id="segment_cert" style="display: none;">
+                    <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(0, 242, 255, 0.15);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
+                            <span style="font-size: 1.2rem;">📜</span>
+                            <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">CREDENTIAL_NEXUS</h3>
+                        </div>
+                        ${(() => {
+                            const hasCert = localStorage.getItem(`nxa_cert_${state.user.email}`) === 'ELIGIBLE';
+                            if (!hasCert) return `<div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No certifications manifested. Complete ELITE assessment to unlock.</div>`;
+                            return `
+                                <div style="background: rgba(0, 242, 255, 0.05); border: 1px solid rgba(0, 242, 255, 0.1); padding: 1.2rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-size: 0.8rem; color: #fff; font-weight: 900;">INDUSTRIAL_CORE_V1</div>
+                                        <div style="font-size: 0.5rem; color: var(--accent-primary); letter-spacing: 1px;">ELITE_QUALIFICATION</div>
+                                    </div>
+                                    <button onclick="window.NXA_VIEW_CERTIFICATE()" style="background: var(--accent-primary); color: #000; border: none; padding: 8px 15px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">VIEW_CERT</button>
+                                </div>
+                            `;
+                        })()}
+                    </div>
+                </div>
+
+                <!-- INDUSTRIAL GUIDE (INSTRUCTIONS) -->
+                <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--glass-border); padding: 1.5rem; border-radius: 20px; margin-top: 2rem;">
+                    <h4 style="font-size: 0.6rem; color: var(--accent-primary); font-weight: 900; margin-bottom: 15px; letter-spacing: 2px;">NXA_IDENTITY_GUIDE</h4>
+                    <ul style="padding: 0; margin: 0; list-style: none; color: var(--text-dim); font-size: 0.65rem; display: grid; gap: 8px;">
+                        <li style="display: flex; gap: 10px;"><span>📄</span> <b>Receipts:</b> Go to Self → FINANCIAL_VAULT → Tap DOWNLOAD.</li>
+                        <li style="display: flex; gap: 10px;"><span>📊</span> <b>Exam History:</b> Go to Self → EXAM_DOSSIER to see your latest scores.</li>
+                        <li style="display: flex; gap: 10px;"><span>📜</span> <b>Certificates:</b> Go to Self → CREDENTIAL_NEXUS to view your earned credentials.</li>
+                    </ul>
                 </div>
             </section>
             <script>
+                window.NXA_SET_SELF_TAB = (tab) => {
+                    const segments = ['fin', 'exam', 'cert'];
+                    segments.forEach(s => {
+                        document.getElementById('segment_' + s).style.display = (s === tab) ? 'block' : 'none';
+                        const btn = document.getElementById('tab_' + s);
+                        if (s === tab) {
+                            btn.style.background = 'var(--accent-primary)';
+                            btn.style.color = '#000';
+                        } else {
+                            btn.style.background = 'none';
+                            btn.style.color = 'var(--text-dim)';
+                        }
+                    });
+                };
                 setTimeout(() => {
                     const lbtn = document.getElementById('perfLogoutBtn');
                     if (lbtn) lbtn.onclick = () => {
