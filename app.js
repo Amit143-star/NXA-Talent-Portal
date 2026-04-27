@@ -677,11 +677,10 @@ window.NXAConfirmPayment = async (courseId) => {
     reader.onload = async (e) => {
         const proofBase64 = e.target.result;
         
-        const modal = document.getElementById('course_pay_gateway');
-        const container = modal.querySelector('div[style*="background: var(--glass-bg)"]');
-        const originalContent = container.innerHTML;
+        const container = document.getElementById('pay_modal_content');
+        if (!container) return alert('SYSTEM_ERROR: Modal Manifest Not Found.');
         
-        // NEURAL SYSTEM ANALYSIS SIMULATION (v9.9)
+        // NEURAL SYSTEM ANALYSIS SIMULATION (v10.0)
         container.innerHTML = `
             <div style="text-align: center; padding: 40px 20px;">
                 <div style="font-size: 2.5rem; margin-bottom: 20px; animation: pulse 1.5s infinite;">⚙️</div>
@@ -1126,7 +1125,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v9.9 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v10.0 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1725,7 +1724,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.9</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v10.0</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2494,7 +2493,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.9</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v10.0</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2754,7 +2753,7 @@ class NXAEngine {
 
                 <!-- INDIVIDUAL COURSE PAYMENT GATEWAY -->
                 <div id="course_pay_gateway" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; align-items: center; justify-content: center; padding: 1.5rem;">
-                    <div style="background: var(--bg-dark); border: 2px solid #ffcc00; border-radius: 24px; padding: 2rem; width: 100%; max-width: 380px; text-align: center;">
+                    <div id="pay_modal_content" style="background: var(--bg-dark); border: 2px solid #ffcc00; border-radius: 24px; padding: 2rem; width: 100%; max-width: 380px; text-align: center;">
                         <h3 style="color: #ffcc00; font-family: var(--font-heading); margin-bottom: 5px;">SECURE_ENROLLMENT</h3>
                         <p id="pay_course_title" style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 2rem;"></p>
                         
