@@ -538,6 +538,7 @@ window.NXA_DOWNLOAD_RECEIPT = (courseId) => {
             </style>
         </head>
         <body>
+            <script src="app.js?v=7.8"></script>
             <div class="receipt">
                 <div class="header">
                     <h1 style="margin:0; font-size: 24px; color: #00ff6a;">NXA TALENT</h1>
@@ -1413,10 +1414,18 @@ class NXAEngine {
         }
     }
 
-    showPaymentGateway(courseId, price) {
+    async showPaymentGateway(courseId, price) {
         const courses = this.getCourses();
         const course = courses.find(c => c.id === courseId);
         if(!course) return;
+
+        // FORCE SYNC CONFIG FROM CLOUD
+        if (typeof firebase !== 'undefined') {
+            const remoteConfig = await Cloud.get('nxa_broadcasts', 'payment_config');
+            if (remoteConfig) {
+                localStorage.setItem('nxa_payment_config', JSON.stringify(remoteConfig));
+            }
+        }
 
         const modal = document.getElementById('course_pay_gateway');
         const title = document.getElementById('pay_course_title');
@@ -1424,26 +1433,31 @@ class NXAEngine {
         const confirmBtn = document.getElementById('confirm_pay_btn');
         const qrContainer = document.getElementById('pay_qr_container');
 
-        title.innerText = `FOR COURSE: ${course.title.toUpperCase()}`;
+        modal.style.background = 'rgba(0,0,0,0.95)';
+        modal.style.backdropFilter = 'blur(20px)';
+        modal.style.border = '1px solid var(--accent-primary)';
+        title.innerText = `[SECURE_TX_NODE]: ${course.title.toUpperCase()}`;
+        title.style.color = 'var(--accent-primary)';
         priceLabel.innerText = `₹${price}`;
         confirmBtn.onclick = () => window.NXAConfirmPayment(courseId);
         
-        // DYNAMIC QR GENERATION (UPI PROTOCOL)
         const payConfig = JSON.parse(localStorage.getItem('nxa_payment_config')) || { upi: '' };
-        qrContainer.innerHTML = ''; // Reset
+        qrContainer.innerHTML = ''; 
         
-        if (payConfig.qr && payConfig.qr.startsWith('http')) {
-            qrContainer.innerHTML = `<img src="${payConfig.qr}" style="width: 180px; height: 180px; background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 10px;">`;
+        if (!payConfig.upi && !payConfig.qr) {
+            qrContainer.innerHTML = `<div style="padding: 20px; color: #ff4545; font-size: 0.7rem; font-weight: 800;">PAYMENT_GATEWAY_OFFLINE: Contact Admin for Configuration.</div>`;
+        } else if (payConfig.qr && payConfig.qr.startsWith('http')) {
+            qrContainer.innerHTML = `<img src="${payConfig.qr}" style="width: 200px; height: 200px; background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 10px; border: 4px solid var(--accent-primary);">`;
         } else {
-            // Generate UPI QR
             const upiUrl = `upi://pay?pa=${payConfig.upi}&pn=NXA_TALENT&am=${price}&cu=INR`;
             const qrDiv = document.createElement('div');
             qrDiv.id = 'dynamic_upi_qr';
             qrDiv.style.background = '#fff';
-            qrDiv.style.padding = '10px';
-            qrDiv.style.borderRadius = '12px';
+            qrDiv.style.padding = '12px';
+            qrDiv.style.borderRadius = '16px';
             qrDiv.style.display = 'inline-block';
             qrDiv.style.marginBottom = '10px';
+            qrDiv.style.border = '4px solid var(--accent-primary)';
             qrContainer.appendChild(qrDiv);
             
             setTimeout(() => {
@@ -1532,9 +1546,9 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.7</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.8</div>
                     </div>
-                    <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
+                    <link rel="stylesheet" href="style.css?v=7.8"><div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
                             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.7;"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                             <div style="position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; background: #ff4545; border-radius: 50%; border: 1px solid #000;"></div>
