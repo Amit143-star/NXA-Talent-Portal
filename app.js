@@ -1,5 +1,5 @@
 /**
- * NXA TALENT - INDUSTRIAL CLOUD ENGINE v1.2
+ * NXA TALENT - INDUSTRIAL CLOUD ENGINE v11.4
  * Engineered for Real-Time Global Synchronization via Firebase Firestore.
  */
 
@@ -103,17 +103,8 @@ const AppState = {
                 this.user = JSON.parse(savedUser);
             }
 
-            // EXTREME FAILSAFE: If no session exists but an account was registered locally, auto-login!
-            if (!this.user) {
-                const users = JSON.parse(localStorage.getItem('nxa_users')) || [];
-                if (users.length > 0) {
-                    this.user = users[users.length - 1];
-                    this.role = this.user.role || 'student';
-                    // Re-save session
-                    localStorage.setItem('nxa_active_session', JSON.stringify(this.user));
-                    document.cookie = `nxa_active_session=${encodeURIComponent(JSON.stringify(this.user))}; max-age=31536000; path=/`;
-                }
-            }
+            // SECURITY_FIX v11.4: Removed nxa_users auto-login to prevent session bleed across devices via Android Backup.
+            // Users must now explicitly authenticate via the login portal.
             
             let savedRole = localStorage.getItem('nxa_active_role');
             if (!savedRole) {
@@ -143,8 +134,8 @@ const AppState = {
             localStorage.setItem('nxa_active_role_type', this.roleType || '');
             
             // Cookie Persistence (1 Year)
-            document.cookie = `nxa_active_session=${encodeURIComponent(userStr)}; max-age=31536000; path=/`;
-            document.cookie = `nxa_active_role=${encodeURIComponent(this.role || 'student')}; max-age=31536000; path=/`;
+            document.cookie = `nxa_active_session=${encodeURIComponent(userStr)}; max-age=31536000; path=/; SameSite=Lax`;
+            document.cookie = `nxa_active_role=${encodeURIComponent(this.role || 'student')}; max-age=31536000; path=/; SameSite=Lax`;
         } catch (e) { console.warn("NXA_STORAGE: Local memory full/blocked."); }
     },
     setView(view) { 
@@ -538,8 +529,8 @@ window.NXA_DOWNLOAD_RECEIPT = (courseId) => {
             </style>
         </head>
         <body>
-            <link rel="stylesheet" href="style.css?v=8.3">
-            <script src="app.js?v=8.3"></script>
+            <link rel="stylesheet" href="style.css?v=11.3">
+            <script src="app.js?v=11.3"></script>
             <div class="receipt">
                 <div class="header">
                     <h1 style="margin:0; font-size: 24px; color: #00ff6a;">NXA TALENT</h1>
@@ -1097,25 +1088,35 @@ window.NXAAssignAll = async (courseId, assign) => {
     window.NXAShowAssignModal(courseId);
 };
 
-window.NXAToggleAssignment = async (email, courseId, btn) => {
-    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-    const s = profiles[email];
-    if(!s) return;
-    if(!s.assigned_courses) s.assigned_courses = [];
-    const idx = s.assigned_courses.indexOf(courseId);
-    if(idx > -1) {
-        s.assigned_courses.splice(idx, 1);
-        btn.innerText = 'ADD'; btn.style.background = 'transparent'; btn.style.color = '#fff';
-        btn.style.border = '1px solid var(--glass-border)';
-    } else {
-        s.assigned_courses.push(courseId);
-        btn.innerText = 'YES'; btn.style.background = '#00ff6a'; btn.style.color = '#000';
-        btn.style.border = '1px solid #00ff6a';
-    }
-    profiles[email] = s;
-    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-    if (typeof firebase !== 'undefined') await Cloud.set('nxa_student_profiles', email, s);
-    window.dispatchEvent(new Event('nxa_internal_sync'));
+window.NXA_CHANGE_PHOTO = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+            const email = AppState.user.email;
+            if (!profiles[email]) profiles[email] = { fullname: AppState.user.name };
+            profiles[email].photo = ev.target.result;
+            localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+            if (typeof firebase !== 'undefined') await Cloud.set('nxa_student_profiles', email, profiles[email]);
+            AppState.notify(); // Force re-render UI with new photo
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+};
+
+window.NXA_TOGGLE_FOLDER = (id) => {
+    const folder = document.getElementById('folder_' + id);
+    const icon = document.getElementById('folder_icon_' + id);
+    if (!folder) return;
+    const isVisible = folder.style.display === 'block';
+    folder.style.display = isVisible ? 'none' : 'block';
+    if (icon) icon.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(90deg)';
 };
 
 class NXAEngine {
@@ -1125,7 +1126,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v10.1 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v11.4 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1342,13 +1343,19 @@ class NXAEngine {
 
         // SYNC MASTER PROFILES MATRIX (FULL DETAILS)
         firebase.firestore().collection('nxa_student_profiles').onSnapshot(snap => {
-            const localProfiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-            const profiles = { ...localProfiles };
-            snap.forEach(doc => { profiles[doc.id] = doc.data(); });
-            localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-            // Trigger local sync event for other tabs
-            window.dispatchEvent(new Event('nxa_internal_sync')); 
-            if (AppState.view === 'student_mgmt') this.render(AppState);
+            try {
+                const localProfiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+                const profiles = { ...localProfiles };
+                snap.forEach(doc => { 
+                    const d = doc.data();
+                    if (d) {
+                        profiles[doc.id] = { ...d, email: d.email || doc.id }; // Security Fix: Ensure email exists
+                    }
+                });
+                localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+                window.dispatchEvent(new Event('nxa_internal_sync')); 
+                if (AppState.view === 'student_mgmt') this.render(AppState);
+            } catch(e) { console.error("NXA_CLOUD_SYNC_CRITICAL:", e); }
         });
 
         // SYNC LIVE CLASS MATRIX
@@ -1724,7 +1731,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v10.1</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v11.4</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -1742,7 +1749,6 @@ class NXAEngine {
                 <div class="sidebar-item ${state.view === 'home' ? 'active' : ''}" data-view="home"><span class="icon">🏠</span> Home</div>
                 ${isStudent ? `
                 <div class="sidebar-item ${state.view === 'leetcode' ? 'active' : ''}" data-view="leetcode"><span class="icon">💻</span> Leet Code</div>
-                <div class="sidebar-item ${state.view === 'registration' ? 'active' : ''}" data-view="registration"><span class="icon">📝</span> Registration</div>
                 <div class="sidebar-item ${state.view === 'attendance' ? 'active' : ''}" data-view="attendance"><span class="icon">📅</span> Attendance</div>
                 <div class="sidebar-item ${state.view === 'projects' ? 'active' : ''}" data-view="projects"><span class="icon">📂</span> Projects</div>
                 <div class="sidebar-item ${state.view === 'internships' ? 'active' : ''}" data-view="internships"><span class="icon">🤝</span> Internships</div>
@@ -1855,7 +1861,7 @@ class NXAEngine {
 
     renderView(state) {
         if (state.view === 'home') return this.viewHome(state);
-        if (state.view === 'register') return this.viewRegister(state);
+        if (state.view === 'register') return this.viewSelf(state);
         if (state.view === 'student_mgmt') return this.viewStudentManagement(state);
         if (state.view === 'attendance') return this.viewAttendance(state);
         if (state.view === 'projects') return this.viewProjects(state);
@@ -1879,99 +1885,7 @@ class NXAEngine {
         }
     }
 
-    viewRegister(state, isEditing = false) {
-        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-        const emailKey = state.user.email.toLowerCase().trim();
-        const existing = profiles[emailKey];
 
-        if (existing && existing.submittedAt && !isEditing) {
-            return `<section class="section" style="display:flex; align-items:center; justify-content:center; height:80vh;">
-                <div style="background: var(--glass-bg); border: 1px solid var(--accent-primary); border-radius: 24px; padding: 2.5rem; text-align: center; box-shadow: 0 0 30px rgba(0,242,255,0.1);">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
-                    <h2 class="glitch-text" style="font-size: 1.5rem; margin-bottom: 0.5rem;">IDENTITY_SYNCED</h2>
-                    <p style="color: var(--text-dim); font-size: 0.8rem;">Core identity manifested on ${existing.submittedAt}</p>
-                    <button onclick="AppState.setView('self')" class="btn-primary" style="margin-top: 2rem; padding: 12px 35px;">VIEW DOSSIER</button>
-                </div>
-            </section>`;
-        }
-
-        const f = (id, label, placeholder = '', type = 'text', val = '') => `
-            <div class="input-block" style="margin-bottom: 0.6rem;">
-                <label style="font-size: 0.5rem; letter-spacing: 1px; color: var(--accent-primary); font-weight: 800; margin-bottom: 4px;">${label}</label>
-                <input id="${id}" type="${type}" value="${val}" placeholder="${placeholder}" style="background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); padding: 0.5rem 0.8rem; font-size: 0.75rem; border-radius: 8px; width: 100%; color: #fff;">
-            </div>
-        `;
-
-        return `
-            <section class="section" style="padding: 1rem; max-height: 100vh; overflow: hidden; display: flex; flex-direction: column;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
-                    <div>
-                        <h2 style="font-family: var(--font-heading); font-size: 1.3rem; margin:0; line-height:1;">${isEditing ? 'RE-SYNC' : 'IDENTITY_DOSSIER'}</h2>
-                        <span style="font-size: 0.55rem; color: var(--text-dim); letter-spacing: 2px;">SEC_LEVEL_01 // CORE_REGISTRATION</span>
-                    </div>
-                </div>
-
-                <form id="dossierForm" style="flex: 1; overflow-y: auto; padding-right: 5px;">
-                    <!-- BLOCK 1: PERSONAL MATRIX -->
-                    <div style="background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 12px; margin-bottom: 1rem; border-left: 2px solid var(--accent-primary);">
-                        <div style="font-size: 0.6rem; font-weight: 900; margin-bottom: 0.8rem; color: var(--text-dim);">[ 01_PERSONAL_CORE ]</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
-                            ${f('d_fullname', 'FULL NAME', 'Amit ...', 'text', existing?.fullname)}
-                            ${f('d_email', 'CORE_ID (FIXED)', '', 'text', state.user.email)}
-                            ${f('d_phone', 'PHONE_UPLINK', '+91...', 'tel', existing?.phone)}
-                            ${f('d_dob', 'DATE_OF_BIRTH', '', 'date', existing?.dob)}
-                            <div class="input-block">
-                                <label style="font-size: 0.5rem; color: var(--accent-primary); font-weight:800;">GENDER</label>
-                                <select id="d_gender" style="width:100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); padding: 0.5rem; color: white; border-radius: 8px; font-size: 0.75rem;">
-                                    <option value="Male" ${existing?.gender === 'Male' ? 'selected' : ''}>MALE</option>
-                                    <option value="Female" ${existing?.gender === 'Female' ? 'selected' : ''}>FEMALE</option>
-                                </select>
-                            </div>
-                            ${f('d_address', 'IDENTITY_LOCATION', 'City, State', 'text', existing?.address)}
-                        </div>
-                    </div>
-
-                    <!-- BLOCK 2: ACADEMIC PROTOCOLS -->
-                    <div style="background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 12px; margin-bottom: 1rem; border-left: 2px solid #00ff6a;">
-                        <div style="font-size: 0.6rem; font-weight: 900; margin-bottom: 0.8rem; color: var(--text-dim);">[ 02_ACADEMIC_METRICS ]</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
-                            ${f('d_usn', 'USN_ID', 'University ID', 'text', existing?.usn)}
-                            ${f('d_branch', 'DEPT_CORE', 'CSE/ECE', 'text', existing?.branch)}
-                            ${f('d_sem', 'CURRENT_SEM', '1-8', 'number', existing?.sem)}
-                            ${f('d_passingyear', 'EST_PASS_YEAR', '2027', 'number', existing?.passingyear)}
-                            ${f('d_10th', '10TH_METRIC (%)', 'XX.X', 'text', existing?.marks10)}
-                            ${f('d_12th', '12TH/DIP_METRIC (%)', 'XX.X', 'text', existing?.marks12)}
-                            <div class="input-block" style="grid-column: span 2;">
-                                ${f('d_college', 'INSTITUTE_NAME', 'Full College Name', 'text', existing?.college)}
-                            </div>
-                            ${f('d_cgpa', 'CORE_CGPA', '0.00', 'text', existing?.cgpa)}
-                            ${f('d_domain', 'SKILL_DOMAIN', 'Web/AI', 'text', existing?.domain)}
-                        </div>
-                    </div>
-
-                    <!-- BLOCK 3: GLOBAL UPLINKS -->
-                    <div style="background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 2px solid #ffcc00;">
-                        <div style="font-size: 0.6rem; font-weight: 900; margin-bottom: 0.8rem; color: var(--text-dim);">[ 03_GLOBAL_UPLINKS ]</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
-                            ${f('d_linkedin', 'LINKEDIN_UPLINK', 'https://...', 'text', existing?.linkedin)}
-                            ${f('d_github', 'GITHUB_CORE', 'https://...', 'text', existing?.github)}
-                            <div class="input-block" style="grid-column: span 2;">
-                                ${f('d_skills', 'SKILL_MATRIX (CSV)', 'JS, Java, Python...', 'text', existing?.skills)}
-                            </div>
-                            ${f('d_pname', 'PARENT_IDENTITY', 'Full Name', 'text', existing?.pname)}
-                            ${f('d_pphone', 'PARENT_UPLINK', '+91...', 'tel', existing?.pphone)}
-                        </div>
-                    </div>
-
-                    <div style="padding-bottom: 150px;">
-                        <button type="button" onclick="window.NXASubmitDossier(event)" id="dossierSubmit" class="btn-primary" style="width: 100%; height: 50px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2rem; box-shadow: 0 10px 20px rgba(0,242,255,0.2);">
-                            AUTHORIZE_IDENTITY_MANIFEST
-                        </button>
-                    </div>
-                </form>
-            </section>
-        `;
-    }
 
     viewNotifications(state) {
         const isAdmin = state.role === 'admin' || state.user.email === 'nxasupertalent@gmail.com';
@@ -2022,16 +1936,18 @@ class NXAEngine {
 
 
     viewStudentManagement(state) {
-        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-        const students = Object.values(profiles);
-        const allUsers = JSON.parse(localStorage.getItem('nxa_users')) || [];
+        let profiles = {};
+        try { profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {}; } catch(e) { profiles = {}; }
         
-        const profileEmails = Object.keys(profiles).map(e => e.toLowerCase());
-        const pending = allUsers.filter(u => u.email && !profileEmails.includes(u.email.toLowerCase()));
+        // Robust filtering: Only map objects that have at least a name or email
+        const students = Object.values(profiles).filter(s => s && typeof s === 'object' && (s.fullname || s.email));
+        
+        let allUsers = [];
+        try { allUsers = JSON.parse(localStorage.getItem('nxa_users')) || []; } catch(e) { allUsers = []; }
+        
+        const profileEmails = Object.keys(profiles).map(e => String(e).toLowerCase());
+        const pending = allUsers.filter(u => u && u.email && !profileEmails.includes(String(u.email).toLowerCase()));
 
-        const isSuper = state.role === 'admin' && state.roleType === 'super';
-        const isMax = state.role === 'admin' && state.roleType === 'max';
-        const isCenter = state.role === 'admin' && state.roleType === 'center';
         const activeTab = state.adminTab || 'dossiers';
 
         return `
@@ -2059,8 +1975,8 @@ class NXAEngine {
                                 
                                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
                                     <div>
-                                        <h3 style="font-size: 1.2rem; color: #fff; margin:0; font-family: var(--font-heading);">${s.fullname}</h3>
-                                        <span style="color: var(--accent-primary); font-size: 0.6rem; font-weight: 900; letter-spacing: 1px;">${s.email.toUpperCase()}</span>
+                                        <h3 style="font-size: 1.2rem; color: #fff; margin:0; font-family: var(--font-heading);">${s.fullname || 'UNNAMED_STUDENT'}</h3>
+                                        <span style="color: var(--accent-primary); font-size: 0.6rem; font-weight: 900; letter-spacing: 1px;">${(s.email || 'NO_EMAIL').toUpperCase()}</span>
                                         <div style="margin-top: 8px;">
                                             <span style="font-size: 0.5rem; background: ${s.payment_status === 'verified' ? 'rgba(0, 255, 106, 0.1)' : 'rgba(255, 69, 69, 0.1)'}; color: ${s.payment_status === 'verified' ? '#00ff6a' : '#ff4545'}; padding: 2px 8px; border-radius: 4px; font-weight: 800; border: 1px solid ${s.payment_status === 'verified' ? '#00ff6a' : '#ff4545'};">PAYMENT: ${s.payment_status === 'verified' ? 'VERIFIED ✓' : 'PENDING 🔒'}</span>
                                         </div>
@@ -2484,121 +2400,238 @@ class NXAEngine {
 
     viewSelf(state) {
         const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-        const pd = profiles[state.user.email.toLowerCase().trim()];
+        const emailKey = state.user.email.toLowerCase().trim();
+        const p = profiles[emailKey] || {};
+        const isRegistered = !!p.fullname;
+        const isEditing = state.isEditingProfile || false;
+
+        const f = (id, label, placeholder = '', type = 'text', val = '') => `
+            <div class="input-block" style="margin-bottom: 0.8rem;">
+                <label style="font-size: 0.5rem; letter-spacing: 1px; color: var(--accent-primary); font-weight: 800; margin-bottom: 4px; display: block;">${label}</label>
+                <input id="${id}" type="${type}" value="${val || ''}" placeholder="${placeholder}" style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 10px; font-size: 0.75rem; border-radius: 8px; width: 100%; color: #fff; box-sizing: border-box;">
+            </div>
+        `;
+
+        const row = (label, val) => `
+            <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                <span style="font-size: 0.55rem; color: var(--text-dim); font-weight: 800;">${label}</span>
+                <span style="font-size: 0.75rem; color: #fff; font-weight: 600;">${val || '---'}</span>
+            </div>
+        `;
 
         return `
-            <section class="section" style="padding: 1.5rem; max-height: 100vh; overflow: hidden;">
-                <!-- SLIM HEADER -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+            <section class="section" style="padding: 1.5rem; padding-bottom: 150px; max-height: 100vh; overflow-y: auto; background: radial-gradient(circle at top right, rgba(0, 242, 255, 0.05), transparent 400px);">
+                <!-- NEXUS IDENTITY HEADER -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
                     <div>
-                        <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
-                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                            <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v10.1</span>
-                        </div>
+                        <div style="font-family: var(--font-heading); font-size: 0.6rem; letter-spacing: 3px; color: var(--accent-primary); font-weight: 800; margin-bottom: 4px;">IDENTITY_NEXUS</div>
+                        <h2 style="font-family: var(--font-heading); font-size: 1.8rem; margin: 0; letter-spacing: -1px; color: #fff; font-weight: 800;">Profile_Core</h2>
                     </div>
-                    <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
-                        RE-SYNC
-                    </button>
-                </div>
-
-
-
-                <!-- HIGH-DENSITY PROFILE CORE -->
-                <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--glass-border); margin-bottom: 1rem;">
-                    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
-                        <div style="position: relative; width: 65px; height: 65px; cursor: pointer;" onclick="document.getElementById('avatar_input').click()">
-                            <div id="avatar_display" style="width: 100%; height: 100%; border-radius: 20px; border: 1px solid var(--accent-primary); background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                                ${pd && pd.profilePic ? `<img src="${pd.profilePic}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="font-size: 1.5rem;">👤</span>`}
-                            </div>
-                            <input type="file" id="avatar_input" accept="image/*" style="display: none;" onchange="window.NXA_UPLOAD_AVATAR(this)">
-                        </div>
-                        <div style="flex: 1;">
-                            <h3 style="font-size: 1rem; margin: 0; font-family: var(--font-heading); color: #fff;">${state.user.name}</h3>
-                            <p style="color: var(--text-dim); font-size: 0.6rem; margin-top: 2px;">${state.user.email}</p>
-                        </div>
-                    </div>
-
-                    <!-- ACADEMIC & METRIC MATRIX (2x2 GRID) -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; border: 1px solid var(--glass-border);">
-                            <div style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">USN</div>
-                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pd ? pd.usn : '---'}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; border: 1px solid var(--glass-border);">
-                            <div style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">CGPA</div>
-                            <div style="font-size: 0.7rem; color: #00ff6a; font-weight: 800;">${pd ? pd.cgpa : '---'}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; border: 1px solid var(--glass-border);">
-                            <div style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">YEAR</div>
-                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${pd ? pd.passingyear : '---'}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; border: 1px solid var(--glass-border);">
-                            <div style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">DEPT</div>
-                            <div style="font-size: 0.6rem; color: #fff; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pd ? pd.branch : '---'}</div>
-                        </div>
+                    <div style="background: rgba(0, 242, 255, 0.1); border: 1px solid var(--accent-primary); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 6px; height: 6px; background: var(--accent-primary); border-radius: 50%; box-shadow: 0 0 10px var(--accent-primary);"></span>
+                        <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 900; letter-spacing: 1px;">SYNCED</span>
                     </div>
                 </div>
 
-                <!-- DOSSIER FOLDERS (SLIM ONE-SCREEN LAYOUT) -->
-                <div style="display: grid; gap: 0.6rem;">
-                    <!-- FINANCIAL FOLDER -->
-                    <div onclick="window.NXA_TOGGLE_FOLDER('fin')" style="background: var(--glass-bg); padding: 0.8rem 1.2rem; border-radius: 15px; border: 1px solid rgba(0, 255, 106, 0.2); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.3s;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 1.2rem;">🏦</span>
-                            <div style="font-family: var(--font-heading); font-size: 0.8rem; letter-spacing: 1px; color: #fff;">FINANCIAL_VAULT</div>
+                <!-- PREMIUM PROFILE CORE CARD -->
+                <div style="background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01)); border: 1px solid var(--glass-border); border-radius: 32px; padding: 2rem; position: relative; overflow: hidden; margin-bottom: 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+                    <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: var(--accent-primary); filter: blur(100px); opacity: 0.1;"></div>
+                    
+                    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; z-index: 2;">
+                        <div onclick="window.NXA_CHANGE_PHOTO()" style="position: relative; cursor: pointer; margin-bottom: 1.5rem;">
+                            <div style="position: absolute; inset: -8px; border: 2px solid rgba(0, 242, 255, 0.2); border-radius: 50%; animation: pulse 2s infinite;"></div>
+                            <img id="self_photo" src="${p.photo || 'https://api.dicebear.com/7.x/avataaars/svg?seed='+state.user.email}" style="width: 120px; height: 120px; border-radius: 50%; border: 4px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: cover; background: #000;">
+                            <div style="position: absolute; bottom: 0; right: 5px; background: var(--accent-primary); color: #000; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 4px solid #1a1a1a;">📷</div>
                         </div>
-                        <span id="folder_icon_fin" style="font-size: 0.6rem; color: var(--text-dim);">▶</span>
-                    </div>
-                    <div id="folder_fin" style="display: none; padding: 0.8rem; background: rgba(0,255,106,0.03); border-radius: 12px; margin-top: -0.4rem; border: 1px solid rgba(0,255,106,0.1); border-top: none;">
-                        ${(pd && pd.paid_courses && pd.paid_courses.length > 0) ? pd.paid_courses.map(courseId => {
-                            const c = window.NXA.getCourses().find(item => item.id === courseId);
-                            return `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.03);">
-                                    <span style="font-size: 0.65rem;">${c ? c.title : 'Course_' + courseId}</span>
-                                    <button onclick="window.NXA_DOWNLOAD_RECEIPT('${courseId}')" style="background: #00ff6a; color: #000; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.45rem; font-weight: 900;">RECEIPT</button>
-                                </div>
-                            `;
-                        }).join('') : `<div style="text-align: center; color: var(--text-dim); font-size: 0.55rem;">Empty</div>`}
-                    </div>
 
-                    <!-- EXAM FOLDER -->
-                    <div onclick="window.NXA_TOGGLE_FOLDER('exam')" style="background: var(--glass-bg); padding: 0.8rem 1.2rem; border-radius: 15px; border: 1px solid rgba(255, 204, 0, 0.2); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.3s;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 1.2rem;">📝</span>
-                            <div style="font-family: var(--font-heading); font-size: 0.8rem; letter-spacing: 1px; color: #fff;">EXAM_DOSSIER</div>
+                        <h3 style="margin: 0; font-size: 1.6rem; font-weight: 800; color: #fff; letter-spacing: -0.5px;">${p.fullname || state.user.name}</h3>
+                        <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                            <span style="background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 8px; color: var(--text-dim); font-size: 0.6rem; font-weight: 700; letter-spacing: 1px;">${(p.ug_degree || 'Industrial_Core').toUpperCase()}</span>
+                            <span style="color: var(--accent-primary); font-size: 0.8rem; opacity: 0.5;">•</span>
+                            <span style="color: var(--accent-primary); font-size: 0.65rem; font-weight: 800;">CLASS_OF_${p.passingyear || '202X'}</span>
                         </div>
-                        <span id="folder_icon_exam" style="font-size: 0.6rem; color: var(--text-dim);">▶</span>
-                    </div>
-                    <div id="folder_exam" style="display: none; padding: 0.8rem; background: rgba(255,204,0,0.03); border-radius: 12px; margin-top: -0.4rem; border: 1px solid rgba(255,204,0,0.1); border-top: none;">
-                        ${(() => {
-                            const results = JSON.parse(localStorage.getItem(`nxa_scores_${state.user.email}`)) || [];
-                            if (results.length === 0) return `<div style="text-align: center; color: var(--text-dim); font-size: 0.55rem;">No Records</div>`;
-                            return results.map(r => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.03);">
-                                    <span style="font-size: 0.65rem;">${r.examTitle}</span>
-                                    <span style="color: #ffcc00; font-weight: 900; font-size: 0.65rem;">${r.score}/${r.total}</span>
-                                </div>
-                            `).join('');
-                        })()}
-                    </div>
-
-                    <!-- CERTIFICATE FOLDER -->
-                    <div onclick="window.NXA_TOGGLE_FOLDER('cert')" style="background: var(--glass-bg); padding: 0.8rem 1.2rem; border-radius: 15px; border: 1px solid rgba(0, 242, 255, 0.2); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.3s;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 1.2rem;">🎓</span>
-                            <div style="font-family: var(--font-heading); font-size: 0.8rem; letter-spacing: 1px; color: #fff;">CREDENTIAL_NEXUS</div>
-                        </div>
-                        <span id="folder_icon_cert" style="font-size: 0.6rem; color: var(--text-dim);">▶</span>
-                    </div>
-                    <div id="folder_cert" style="display: none; padding: 0.8rem; background: rgba(0,242,255,0.03); border-radius: 12px; margin-top: -0.4rem; border: 1px solid rgba(0,242,255,0.1); border-top: none;">
-                        ${localStorage.getItem(`nxa_cert_${state.user.email}`) === 'ELIGIBLE' ? `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px;">
-                                <span style="font-size: 0.65rem;">INDUSTRIAL_CERT</span>
-                                <button onclick="window.NXA_VIEW_CERTIFICATE()" style="background: var(--accent-primary); color: #000; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.45rem; font-weight: 900;">VIEW</button>
+                        
+                        <div style="margin-top: 1.5rem; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="font-size: 0.5rem; color: var(--text-dim); margin-bottom: 4px;">ACADEMIC_CGPA</div>
+                                <div style="font-size: 1rem; font-weight: 800; color: #fff;">${p.ug_marks || '0.00'}</div>
                             </div>
-                        ` : `<div style="text-align: center; color: var(--text-dim); font-size: 0.55rem;">Pending</div>`}
+                            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="font-size: 0.5rem; color: var(--text-dim); margin-bottom: 4px;">SYNC_STABILITY</div>
+                                <div style="font-size: 1rem; font-weight: 800; color: #00ff6a;">98.4%</div>
+                            </div>
+                        </div>
+
+                        <button onclick="AppState.isEditingProfile=true; NXA.render(AppState)" style="width: 100%; margin-top: 1.5rem; background: var(--accent-primary); color: #000; border: none; padding: 14px; border-radius: 14px; font-weight: 900; font-size: 0.75rem; letter-spacing: 1px; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(0, 242, 255, 0.2);">
+                            MODIFY_IDENTITY_DOSSIER
+                        </button>
                     </div>
+                </div>
+
+                <!-- VAULTED DATA ARCHITECTURE -->
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="font-size: 0.55rem; font-weight: 900; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 1rem; padding-left: 0.5rem;">[ DATA_VAULTS ]</div>
+                    
+                    <!-- INDUSTRIAL DOSSIER (21 FIELDS) -->
+                    <div style="margin-bottom: 0.8rem;">
+                        <div onclick="window.NXA_TOGGLE_FOLDER('dossier')" style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <div style="width: 40px; height: 40px; background: rgba(0, 242, 255, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">📑</div>
+                                <div>
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: #fff;">INDUSTRIAL_DOSSIER</div>
+                                    <div style="font-size: 0.55rem; color: var(--text-dim);">21-Field Manifest Signature</div>
+                                </div>
+                            </div>
+                            <span id="folder_icon_dossier" style="font-size: 0.7rem; color: var(--text-dim); transform: rotate(${(!isRegistered || isEditing) ? '90deg' : '0deg'});">▶</span>
+                        </div>
+                        
+                        <div id="folder_dossier" style="display: ${(!isRegistered || isEditing) ? 'block' : 'none'}; padding: 1.5rem; background: rgba(255,255,255,0.02); border-radius: 24px; margin-top: 10px; border: 1px solid var(--glass-border);">
+                            ${(!isRegistered || isEditing) ? `
+                                <form id="unifiedDossierForm">
+                                    <!-- 1. IDENTITY MATRIX -->
+                                    <div style="font-size: 0.55rem; font-weight: 900; color: var(--accent-primary); letter-spacing: 2px; margin-bottom: 1rem; border-bottom: 1px solid rgba(0, 242, 255, 0.1); padding-bottom: 5px;">[ 01_IDENTITY_MATRIX ]</div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                                        ${f('d_fullname', '01_FULL_NAME', 'Amit ...', 'text', p.fullname || state.user.name)}
+                                        ${f('d_dob', '02_DATE_OF_BIRTH', '', 'date', p.dob)}
+                                        <div class="input-block">
+                                            <label style="font-size: 0.5rem; color: var(--accent-primary); font-weight:800;">03_GENDER</label>
+                                            <select id="d_gender" style="width:100%; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 10px; color: white; border-radius: 8px; font-size: 0.75rem;">
+                                                <option value="Male" ${p.gender === 'Male' ? 'selected' : ''}>MALE</option>
+                                                <option value="Female" ${p.gender === 'Female' ? 'selected' : ''}>FEMALE</option>
+                                                <option value="Other" ${p.gender === 'Other' ? 'selected' : ''}>OTHER</option>
+                                            </select>
+                                        </div>
+                                        ${f('d_fname', '04_FATHER_NAME', '', 'text', p.father_name)}
+                                        ${f('d_mname', '05_MOTHER_NAME', '', 'text', p.mother_name)}
+                                        <div class="input-block">
+                                            <label style="font-size: 0.5rem; color: var(--accent-primary); font-weight:800;">06_CATEGORY</label>
+                                            <select id="d_category" style="width:100%; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 10px; color: white; border-radius: 8px; font-size: 0.75rem;">
+                                                <option value="GEN" ${p.category === 'GEN' ? 'selected' : ''}>GEN</option>
+                                                <option value="OBC" ${p.category === 'OBC' ? 'selected' : ''}>OBC</option>
+                                                <option value="SC" ${p.category === 'SC' ? 'selected' : ''}>SC</option>
+                                                <option value="ST" ${p.category === 'ST' ? 'selected' : ''}>ST</option>
+                                            </select>
+                                        </div>
+                                        ${f('d_aadhar', '07_AADHAR_NUMBER', '12-digit', 'text', p.aadhar)}
+                                        ${f('d_phone', '08_PHONE_NUMBER', '+91...', 'tel', p.phone)}
+                                        ${f('d_altphone', '09_ALT_PHONE', '', 'tel', p.alt_phone)}
+                                    </div>
+
+                                    <!-- 2. LOCALITY MATRIX -->
+                                    <div style="font-size: 0.55rem; font-weight: 900; color: var(--accent-primary); letter-spacing: 2px; margin-bottom: 1rem; border-bottom: 1px solid rgba(0, 242, 255, 0.1); padding-bottom: 5px;">[ 02_LOCALITY_MATRIX ]</div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                                        ${f('d_state', '11_STATE', '', 'text', p.state)}
+                                        ${f('d_city', '12_CITY', '', 'text', p.city)}
+                                        <div class="input-block" style="grid-column: span 2;">
+                                            ${f('d_p_address', '13_PERMANENT_ADDRESS', 'Full address...', 'text', p.permanent_address)}
+                                        </div>
+                                        ${f('d_pincode', '14_PIN_CODE', '6-digit', 'text', p.pincode)}
+                                        <div class="input-block">
+                                            <label style="font-size: 0.5rem; color: var(--text-dim); font-weight:800;">10_EMAIL (LOCKED)</label>
+                                            <input type="text" value="${state.user.email}" disabled style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 10px; font-size: 0.75rem; border-radius: 8px; width: 100%; color: var(--text-dim);">
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. ACADEMIC MATRIX -->
+                                    <div style="font-size: 0.55rem; font-weight: 900; color: var(--accent-primary); letter-spacing: 2px; margin-bottom: 1rem; border-bottom: 1px solid rgba(0, 242, 255, 0.1); padding-bottom: 5px;">[ 03_ACADEMIC_MATRIX ]</div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                                        ${f('d_10th', '15_10TH_PERCENT', 'XX.X%', 'text', p.marks10)}
+                                        ${f('d_12th', '16_12TH_PERCENT', 'XX.X%', 'text', p.marks12)}
+                                        ${f('d_ug_degree', '17_UG_DEGREE', 'e.g. BE', 'text', p.ug_degree)}
+                                        ${f('d_ug_marks', '18_UG_MARKS', 'CGPA', 'text', p.ug_marks)}
+                                        ${f('d_specialization', '19_SPECIALIZATION', 'CSE/ECE...', 'text', p.branch)}
+                                        ${f('d_college', '20_COLLEGE', 'Name...', 'text', p.college)}
+                                        ${f('d_gradyear', '21_GRAD_YEAR', '202X', 'number', p.passingyear)}
+                                    </div>
+
+                                    <button type="button" onclick="window.NXASaveUnifiedDossier()" style="width: 100%; padding: 18px; background: var(--accent-primary); color: #000; border: none; border-radius: 12px; font-weight: 900; font-size: 0.8rem; letter-spacing: 1px; cursor: pointer; box-shadow: 0 10px 20px rgba(0, 242, 255, 0.2);">AUTHORIZE_IDENTITY_SYNC</button>
+                                </form>
+                            ` : `
+                                <div style="display: grid; gap: 5px;">
+                                    ${row('FULL_NAME', p.fullname)}
+                                    ${row('AADHAR_NODE', p.aadhar)}
+                                    ${row('CONTACT_LINK', p.phone)}
+                                    ${row('LOCATION', p.city + ', ' + p.state)}
+                                    ${row('ACADEMIC_CGPA', p.ug_marks)}
+                                    ${row('INSTITUTE', p.college)}
+                                    ${row('GRADUATION', p.passingyear)}
+                                </div>
+                                <div style="margin-top: 15px; font-size: 0.5rem; color: var(--text-dim); text-align: center; font-style: italic;">Note: All 21 fields are securely vaulted and synchronized with the cloud core.</div>
+                            `}
+                        </div>
+                    </div>
+
+                    <!-- FINANCIAL VAULT -->
+                    <div style="margin-bottom: 0.8rem;">
+                        <div onclick="window.NXA_TOGGLE_FOLDER('fin')" style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <div style="width: 40px; height: 40px; background: rgba(0, 255, 106, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">🏦</div>
+                                <div>
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: #fff;">FINANCIAL_VAULT</div>
+                                    <div style="font-size: 0.55rem; color: var(--text-dim);">Transaction Ledger & Receipts</div>
+                                </div>
+                            </div>
+                            <span id="folder_icon_fin" style="font-size: 0.7rem; color: var(--text-dim);">▶</span>
+                        </div>
+                        <div id="folder_fin" style="display: none; padding: 1rem; background: rgba(0,255,106,0.03); border-radius: 20px; margin-top: 10px; border: 1px solid rgba(0, 255, 106, 0.1);">
+                             ${(p && p.paid_courses && p.paid_courses.length > 0) ? p.paid_courses.map(courseId => {
+                                const c = window.NXA.getCourses().find(item => item.id === courseId);
+                                return `
+                                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.03);">
+                                        <span style="font-size: 0.65rem;">${c ? c.title : 'Course_' + courseId}</span>
+                                        <button onclick="window.NXA_DOWNLOAD_RECEIPT('${courseId}')" style="background: #00ff6a; color: #000; border: none; padding: 5px 10px; border-radius: 5px; font-size: 0.45rem; font-weight: 900;">RECEIPT</button>
+                                    </div>
+                                `;
+                             }).join('') : `<div style="text-align: center; color: var(--text-dim); font-size: 0.6rem; padding: 20px;">No transaction data found.</div>`}
+                        </div>
+                    </div>
+
+                    <!-- EXAM DOSSIER (NEW INTERACTIVE) -->
+                    <div style="margin-bottom: 0.8rem;">
+                        <div onclick="window.NXA_TOGGLE_FOLDER('exam')" style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <div style="width: 40px; height: 40px; background: rgba(255, 204, 0, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">📝</div>
+                                <div>
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: #fff;">EXAM_DOSSIER</div>
+                                    <div style="font-size: 0.55rem; color: var(--text-dim);">Assessment Logs & Matrix Scores</div>
+                                </div>
+                            </div>
+                            <span id="folder_icon_exam" style="font-size: 0.7rem; color: var(--text-dim);">▶</span>
+                        </div>
+                        <div id="folder_exam" style="display: none; padding: 1.2rem; background: rgba(255,204,0,0.03); border-radius: 20px; margin-top: 10px; border: 1px solid rgba(255,204,0,0.1);">
+                             <div style="display: grid; gap: 10px;">
+                                <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.03);">
+                                    <div style="font-size: 0.65rem; font-weight: 700;">INITIAL_CORE_ASSESSMENT</div>
+                                    <div style="font-size: 0.65rem; color: #ffcc00; font-weight: 900;">PENDING</div>
+                                </div>
+                                <div style="font-size: 0.5rem; color: var(--text-dim); text-align: center; padding: 10px;">Further assessment matrices will appear after course completion.</div>
+                             </div>
+                        </div>
+                    </div>
+
+                    <!-- CREDENTIAL NEXUS (NEW INTERACTIVE) -->
+                    <div style="margin-bottom: 0.8rem;">
+                        <div onclick="window.NXA_TOGGLE_FOLDER('creds')" style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <div style="width: 40px; height: 40px; background: rgba(0, 229, 255, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">🎓</div>
+                                <div>
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: #fff;">CREDENTIAL_NEXUS</div>
+                                    <div style="font-size: 0.55rem; color: var(--text-dim);">Verified Certificates & Badges</div>
+                                </div>
+                            </div>
+                            <span id="folder_icon_creds" style="font-size: 0.7rem; color: var(--text-dim);">▶</span>
+                        </div>
+                        <div id="folder_creds" style="display: none; padding: 1.2rem; background: rgba(0,229,255,0.03); border-radius: 20px; margin-top: 10px; border: 1px solid rgba(0,229,255,0.1);">
+                             <div style="text-align: center; padding: 20px;">
+                                <div style="font-size: 1.5rem; opacity: 0.3; margin-bottom: 10px;">🔒</div>
+                                <div style="font-size: 0.6rem; color: var(--text-dim);">Complete your industrial dossier and clear assessments to unlock credentials.</div>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; text-align: center;">
+                    <button onclick="AppState.setView('home')" style="background: none; border: 1px solid var(--glass-border); color: var(--text-dim); padding: 12px 24px; border-radius: 12px; font-size: 0.6rem; font-weight: 700; cursor: pointer; letter-spacing: 1px;">TERMINATE_SESSION</button>
                 </div>
             </section>
         `;
@@ -2648,6 +2681,14 @@ class NXAEngine {
                         <div style="font-size: 1.8rem; font-weight: 800; color: #00ff66; margin: 10px 0;">${pd.cgpa || '0.0'}</div>
                         <span style="font-size: 0.5rem; color: var(--text-dim);">CGPA</span>
                     </div>
+                </div>
+
+                <!-- DOSSIER MANIFEST SHORTCUT -->
+                <div onclick="AppState.setView('register')" style="background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(0, 0, 0, 0.4)); border: 1px solid var(--accent-primary); padding: 1.5rem; border-radius: 24px; cursor: pointer; margin-bottom: 1.5rem; position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -20px; right: -20px; font-size: 5rem; opacity: 0.05; transform: rotate(15deg);">📝</div>
+                    <div style="font-size: 0.6rem; color: var(--accent-primary); font-weight: 900; letter-spacing: 2px;">ACTION_REQUIRED</div>
+                    <h3 style="margin: 8px 0; font-size: 1.1rem; color: #fff;">MANIFEST_INDUSTRIAL_DOSSIER</h3>
+                    <p style="color: var(--text-dim); font-size: 0.65rem; line-height: 1.4;">Complete your 21-field core identity to unlock full system permissions and certifications.</p>
                 </div>
 
                 <div style="background: var(--glass-bg); padding: 1rem; border-radius: 20px; border: 1px solid var(--glass-border); display: flex; justify-content: space-around;">
@@ -3316,6 +3357,44 @@ class NXAEngine {
         `;
     }
 }
+
+window.NXASaveUnifiedDossier = async () => {
+    const email = AppState.user.email.toLowerCase().trim();
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    const p = profiles[email] || {};
+
+    const data = {
+        ...p,
+        fullname: document.getElementById('d_fullname').value,
+        dob: document.getElementById('d_dob').value,
+        gender: document.getElementById('d_gender').value,
+        father_name: document.getElementById('d_fname').value,
+        mother_name: document.getElementById('d_mname').value,
+        category: document.getElementById('d_category').value,
+        aadhar: document.getElementById('d_aadhar').value,
+        phone: document.getElementById('d_phone').value,
+        alt_phone: document.getElementById('d_altphone').value,
+        state: document.getElementById('d_state').value,
+        city: document.getElementById('d_city').value,
+        permanent_address: document.getElementById('d_p_address').value,
+        pincode: document.getElementById('d_pincode').value,
+        marks10: document.getElementById('d_10th').value,
+        marks12: document.getElementById('d_12th').value,
+        ug_degree: document.getElementById('d_ug_degree').value,
+        ug_marks: document.getElementById('d_ug_marks').value,
+        branch: document.getElementById('d_specialization').value,
+        college: document.getElementById('d_college').value,
+        passingyear: document.getElementById('d_gradyear').value,
+        submittedAt: new Date().toLocaleString(),
+        syncStatus: 'synced'
+    };
+
+    profiles[email] = data;
+    localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+    if (typeof firebase !== 'undefined') await Cloud.set('nxa_student_profiles', email, data);
+    alert('✅ DOSSIER_MANIFESTED: Your industrial core identity has been updated.');
+    AppState.render(AppState);
+};
 
 // Boot the Matrix
 document.addEventListener('DOMContentLoaded', () => {
