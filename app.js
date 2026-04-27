@@ -1044,7 +1044,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v8.9 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v9.0 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1643,7 +1643,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.9</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.0</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2412,7 +2412,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.9</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.0</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2654,12 +2654,12 @@ class NXAEngine {
                                         </div>
                                         
                                         <div style="text-align: right;">
-                                            <div style="font-size: 0.65rem; color: #ffcc00; font-weight: 900; margin-bottom: 8px; letter-spacing: 1px; background: rgba(255,204,0,0.1); padding: 4px 8px; border-radius: 6px; display: inline-block;">₹${coursePrice}</div>
+                                            <div style="font-size: 0.5rem; color: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; font-weight: 900; margin-bottom: 8px; letter-spacing: 2px; background: ${isPaid ? 'rgba(0,242,255,0.05)' : 'rgba(255,204,0,0.1)'}; padding: 4px 10px; border-radius: 6px; display: inline-block; border: 1px solid ${isPaid ? 'rgba(0,242,255,0.1)' : 'rgba(255,204,0,0.2)'};">VALUATION: ₹${coursePrice}</div>
                                             <br>
                                             <button onclick="${isPaid ? `AppState.setView('course_view_${c.id}')` : `window.NXA.showPaymentGateway('${c.id}', '${coursePrice}')`}" 
                                                     class="btn-primary-lg" 
-                                                    style="padding: 10px 20px; font-size: 0.65rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : ((myProfile.pending_courses || []).includes(c.id) ? '#333' : '#ffcc00')}; color: ${isPaid || (myProfile.pending_courses || []).includes(c.id) ? '#fff' : '#000'}; border: none; font-weight: 900; border-radius: 12px; box-shadow: ${isPaid ? 'none' : '0 4px 15px rgba(255, 204, 0, 0.2)'};">
-                                                ${isPaid ? 'OPEN_UNIT' : ((myProfile.pending_courses || []).includes(c.id) ? 'PENDING...' : `ENROLL_NOW 🔒`)}
+                                                    style="padding: 12px 24px; font-size: 0.7rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; color: #000; border: none; font-weight: 900; border-radius: 14px; box-shadow: ${isPaid ? '0 0 20px rgba(0,242,255,0.2)' : '0 4px 15px rgba(255, 204, 0, 0.2)'}; letter-spacing: 1px; transition: 0.3s;">
+                                                ${isPaid ? 'START_MISSION' : `PAY_TO_UNLOCK 🔒`}
                                             </button>
                                         </div>
                                     </div>
