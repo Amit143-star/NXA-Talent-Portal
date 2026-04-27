@@ -663,7 +663,8 @@ window.NXA_TOGGLE_FOLDER = (id) => {
 
 window.NXAConfirmPayment = async (courseId) => {
     const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-    const s = profiles[AppState.user.email];
+    const email = AppState.user.email.toLowerCase().trim();
+    const s = profiles[email];
     if(!s) return alert('IDENTITY_SYNC_ERROR: Please re-login.');
 
     if (!s.pending_courses) s.pending_courses = [];
@@ -672,31 +673,82 @@ window.NXAConfirmPayment = async (courseId) => {
     }
     s.last_payment_request = new Date().toISOString();
     
-    profiles[AppState.user.email] = s;
+    profiles[email] = s;
     localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
     
     // LOG TRANSACTION FOR ADMIN OVERSIGHT
     const logs = JSON.parse(localStorage.getItem('nxa_payment_logs')) || [];
     const courses = window.NXA.getCourses();
     const course = courses.find(c => c.id === courseId);
-    logs.unshift({
-        email: AppState.user.email,
+    
+    const newLog = {
+        email: email,
         courseId: courseId,
         courseTitle: course ? course.title : 'Unknown',
         price: course ? course.price : '999',
         status: 'pending',
         timestamp: new Date().toISOString()
-    });
+    };
+    
+    logs.unshift(newLog);
     const limitedLogs = logs.slice(0, 50);
     localStorage.setItem('nxa_payment_logs', JSON.stringify(limitedLogs));
 
     if (typeof firebase !== 'undefined') {
-        await Cloud.set('nxa_student_profiles', AppState.user.email, s);
+        await Cloud.set('nxa_student_profiles', email, s);
         await Cloud.set('nxa_broadcasts', 'payment_logs', { list: limitedLogs });
     }
     
-    alert('✅ PAYMENT_REQUESTED: Your enrollment is now pending Admin Verification. Unlocks usually take 5-10 minutes.');
+    alert('✅ PAYMENT_MANIFESTED: Request sent to Industrial Ledger. Unlocks upon Admin Verification.');
     AppState.setView('courses');
+};
+
+window.NXA_DOWNLOAD_RECEIPT = (courseId) => {
+    const courses = window.NXA.getCourses();
+    const c = courses.find(item => item.id === courseId);
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    const pd = profiles[AppState.user.email.toLowerCase().trim()] || {};
+    
+    const receiptHTML = `
+        <div style="background: #000; color: #fff; padding: 30px; font-family: monospace; border: 2px solid #00ff6a; max-width: 400px; margin: 20px auto; border-radius: 15px;">
+            <div style="text-align: center; border-bottom: 1px dashed #444; padding-bottom: 20px; margin-bottom: 20px;">
+                <h2 style="color: #00ff6a; margin: 0;">NXA TALENT</h2>
+                <div style="font-size: 10px; opacity: 0.7;">INDUSTRIAL_RECEIPT_v8.8</div>
+            </div>
+            <div style="font-size: 12px; line-height: 2;">
+                <div style="display: flex; justify-content: space-between;"><span>RECEIPT_ID:</span> <span>TXN_${Date.now()}</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>DATE:</span> <span>${new Date().toLocaleDateString()}</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>HOLDER:</span> <span>${AppState.user.name.toUpperCase()}</span></div>
+                <div style="display: flex; justify-content: space-between;"><span>CORE_ID:</span> <span>${AppState.user.email}</span></div>
+                <div style="margin: 15px 0; border-top: 1px solid #333; padding-top: 15px;">
+                    <div style="color: #00ff6a; font-weight: 800;">ENROLLED_UNIT:</div>
+                    <div style="font-size: 14px; font-weight: 900;">${c ? c.title : 'UNIT_' + courseId}</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: 900; color: #00ff6a; margin-top: 15px; border-top: 2px solid #00ff6a; padding-top: 10px;">
+                    <span>VALUATION:</span> <span>₹${c ? c.price : '---'}</span>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 30px; font-size: 8px; opacity: 0.5;">
+                VERIFIED_BY_NXA_INDUSTRIAL_MATRIX
+                <br>This is a digitally manifested secure receipt.
+            </div>
+            <button onclick="this.parentElement.remove()" style="width: 100%; margin-top: 20px; background: #fff; color: #000; border: none; padding: 10px; border-radius: 8px; font-weight: 900; cursor: pointer;">CLOSE</button>
+        </div>
+    `;
+    
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.background = 'rgba(0,0,0,0.9)';
+    overlay.style.zIndex = '10000';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.innerHTML = receiptHTML;
+    document.body.appendChild(overlay);
 };
 
 window.NXAApprovePayment = async (email, courseId) => {
@@ -985,7 +1037,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v8.6 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v8.8 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1584,7 +1636,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.6</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.8</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2353,7 +2405,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.6</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.8</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2599,8 +2651,8 @@ class NXAEngine {
                                             <br>
                                             <button onclick="${isPaid ? `AppState.setView('course_view_${c.id}')` : `window.NXA.showPaymentGateway('${c.id}', '${coursePrice}')`}" 
                                                     class="btn-primary-lg" 
-                                                    style="padding: 10px 20px; font-size: 0.65rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : ((myProfile.pending_courses || []).includes(c.id) ? '#333' : '#ffcc00')}; color: ${isPaid || (myProfile.pending_courses || []).includes(c.id) ? '#fff' : '#000'}; border: none;">
-                                                ${isPaid ? 'OPEN_UNIT' : ((myProfile.pending_courses || []).includes(c.id) ? 'PENDING...' : `OPEN_UNIT 🔒`)}
+                                                    style="padding: 10px 20px; font-size: 0.65rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : ((myProfile.pending_courses || []).includes(c.id) ? '#333' : '#ffcc00')}; color: ${isPaid || (myProfile.pending_courses || []).includes(c.id) ? '#fff' : '#000'}; border: none; font-weight: 900; border-radius: 12px; box-shadow: ${isPaid ? 'none' : '0 4px 15px rgba(255, 204, 0, 0.2)'};">
+                                                ${isPaid ? 'OPEN_UNIT' : ((myProfile.pending_courses || []).includes(c.id) ? 'PENDING...' : `ENROLL_NOW 🔒`)}
                                             </button>
                                         </div>
                                     </div>
