@@ -669,24 +669,29 @@ window.NXAConfirmPayment = async (courseId) => {
 
     const proofInput = document.getElementById('pay_proof_file');
     if (!proofInput || !proofInput.files[0]) {
-        return alert('🔴 TRANSACTION_ERROR: Please upload your payment screenshot as industrial proof.');
+        return alert('🔴 TRANSACTION_ERROR: Please upload your payment receipt as industrial proof.');
     }
 
     const reader = new FileReader();
     reader.onload = async (e) => {
         const proofBase64 = e.target.result;
 
-        // PENDING VERIFICATION PROTOCOL (v9.4)
-        if (!s.pending_courses) s.pending_courses = [];
-        if (!s.pending_courses.includes(courseId)) {
-            s.pending_courses.push(courseId);
+        // PROOF-GATED INSTANT UNLOCK (v9.6)
+        if (!s.paid_courses) s.paid_courses = [];
+        if (!s.paid_courses.includes(courseId)) {
+            s.paid_courses.push(courseId);
+        }
+        
+        // Remove from pending if exists
+        if (s.pending_courses) {
+            s.pending_courses = s.pending_courses.filter(id => id !== courseId);
         }
         
         s.last_payment_timestamp = new Date().toISOString();
         profiles[email] = s;
         localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
         
-        // LOG TRANSACTION FOR ADMIN
+        // LOG TRANSACTION FOR AUDIT
         const logs = JSON.parse(localStorage.getItem('nxa_payment_logs')) || [];
         const courses = window.NXA.getCourses();
         const course = courses.find(c => c.id === courseId);
@@ -696,7 +701,8 @@ window.NXAConfirmPayment = async (courseId) => {
             courseId: courseId,
             courseTitle: course ? course.title : 'Unknown',
             price: course ? course.price : '999',
-            status: 'pending',
+            status: 'verified',
+            type: 'PROOF_MANIFESTED',
             proof: proofBase64,
             timestamp: new Date().toISOString()
         };
@@ -710,8 +716,8 @@ window.NXAConfirmPayment = async (courseId) => {
             await Cloud.set('nxa_broadcasts', 'payment_logs', { list: limitedLogs });
         }
         
-        alert('✅ PAYMENT_MANIFESTED: Proof uploaded. Your enrollment is now pending Admin Verification.');
-        AppState.setView('courses');
+        alert('✅ ACCESS_AUTHORIZED: Proof received. Industrial unit unlocked.');
+        AppState.setView('course_view_' + courseId);
     };
     reader.readAsDataURL(proofInput.files[0]);
 };
@@ -1089,7 +1095,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v9.5 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v9.6 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1688,7 +1694,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.5</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.6</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2457,7 +2463,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.5</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.6</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2704,8 +2710,8 @@ class NXAEngine {
                                             <br>
                                             <button onclick="${isPaid ? `AppState.setView('course_view_${c.id}')` : `window.NXA.showPaymentGateway('${c.id}', '${coursePrice}')`}" 
                                                     class="btn-primary-lg" 
-                                                    style="padding: 12px 24px; font-size: 0.7rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : ((myProfile.pending_courses || []).includes(c.id) ? '#333' : '#ffcc00')}; color: #000; border: none; font-weight: 900; border-radius: 14px; box-shadow: ${isPaid ? '0 0 20px rgba(0,242,255,0.2)' : '0 4px 15px rgba(255, 204, 0, 0.2)'}; letter-spacing: 1px; transition: 0.3s;">
-                                                ${isPaid ? 'START_MISSION' : ((myProfile.pending_courses || []).includes(c.id) ? 'AWAITING_VERIFICATION...' : `PAY_TO_UNLOCK 🔒`)}
+                                                    style="padding: 12px 24px; font-size: 0.7rem; height: auto; width: auto; background: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; color: #000; border: none; font-weight: 900; border-radius: 14px; box-shadow: ${isPaid ? '0 0 20px rgba(0,242,255,0.2)' : '0 4px 15px rgba(255, 204, 0, 0.2)'}; letter-spacing: 1px; transition: 0.3s;">
+                                                ${isPaid ? 'START_MISSION' : `PAY_TO_UNLOCK 🔒`}
                                             </button>
                                         </div>
                                     </div>
