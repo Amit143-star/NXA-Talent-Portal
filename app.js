@@ -977,7 +977,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v8.3 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v8.4 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1576,7 +1576,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.3</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v8.4</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2354,32 +2354,43 @@ class NXAEngine {
                 </div>
 
                 <!-- COMPACT PROFILE CARD -->
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.3</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v8.4</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- CLEAN BASIC DETAILS -->
-                <div style="background: var(--glass-bg); padding: 2rem; border-radius: 24px; border: 1px solid var(--glass-border); text-align: center; margin-bottom: 1.5rem;">
-                    <div style="position: relative; width: 100px; height: 100px; margin: 0 auto 1.5rem; cursor: pointer;" onclick="document.getElementById('avatar_input').click()">
-                        <div id="avatar_display" style="width: 100%; height: 100%; border-radius: 30px; border: 2px solid var(--accent-primary); background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                            ${pd && pd.profilePic ? `<img src="${pd.profilePic}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="font-size: 3rem;">👤</span>`}
+                <!-- HIGH-DENSITY PROFILE CORE -->
+                <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--glass-border); margin-bottom: 1rem;">
+                    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+                        <div style="position: relative; width: 65px; height: 65px; cursor: pointer;" onclick="document.getElementById('avatar_input').click()">
+                            <div id="avatar_display" style="width: 100%; height: 100%; border-radius: 20px; border: 1px solid var(--accent-primary); background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                                ${pd && pd.profilePic ? `<img src="${pd.profilePic}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="font-size: 1.5rem;">👤</span>`}
+                            </div>
+                            <input type="file" id="avatar_input" accept="image/*" style="display: none;" onchange="window.NXA_UPLOAD_AVATAR(this)">
                         </div>
-                        <div style="position: absolute; bottom: -5px; right: -5px; background: var(--accent-primary); color: #000; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900;">+</div>
-                        <input type="file" id="avatar_input" accept="image/*" style="display: none;" onchange="window.NXA_UPLOAD_AVATAR(this)">
+                        <div style="flex: 1;">
+                            <h3 style="font-size: 1rem; margin: 0; font-family: var(--font-heading); color: #fff;">${state.user.name}</h3>
+                            <p style="color: var(--text-dim); font-size: 0.6rem; margin-top: 2px;">${state.user.email}</p>
+                        </div>
                     </div>
-                    <h3 style="font-size: 1.5rem; margin: 0; font-family: var(--font-heading); color: #fff;">${state.user.name}</h3>
-                    <p style="color: var(--text-dim); font-size: 0.75rem; margin-top: 5px;">${state.user.email}</p>
-                    
-                    <div style="display: flex; justify-content: center; gap: 20px; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-border);">
-                        <div>
-                            <div style="font-size: 0.5rem; color: var(--accent-primary); font-weight: 900;">USN</div>
-                            <div style="font-size: 0.8rem; color: #fff; font-weight: 800;">${pd ? pd.usn : '---'}</div>
+
+                    <!-- ACADEMIC & METRIC MATRIX (2x2 GRID) -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; border: 1px solid var(--glass-border);">
+                            <div style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">USN</div>
+                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pd ? pd.usn : '---'}</div>
                         </div>
-                        <div style="width: 1px; background: var(--glass-border);"></div>
-                        <div>
-                            <div style="font-size: 0.5rem; color: var(--accent-primary); font-weight: 900;">CGPA</div>
-                            <div style="font-size: 0.8rem; color: #00ff6a; font-weight: 800;">${pd ? pd.cgpa : '---'}</div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; border: 1px solid var(--glass-border);">
+                            <div style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">CGPA</div>
+                            <div style="font-size: 0.7rem; color: #00ff6a; font-weight: 800;">${pd ? pd.cgpa : '---'}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; border: 1px solid var(--glass-border);">
+                            <div style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">YEAR</div>
+                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${pd ? pd.passingyear : '---'}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; border: 1px solid var(--glass-border);">
+                            <div style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">DEPT</div>
+                            <div style="font-size: 0.6rem; color: #fff; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pd ? pd.branch : '---'}</div>
                         </div>
                     </div>
                 </div>
