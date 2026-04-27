@@ -796,8 +796,47 @@ window.NXAApprovePayment = async (email, courseId) => {
         await Cloud.set('nxa_broadcasts', 'payment_logs', { list: logs });
     }
     
-    alert(`SUCCESS: Access granted to ${email} for course ${courseId}`);
+    alert(`✅ SUCCESS: Enrollment Manifested for ${email}`);
     AppState.render(AppState);
+};
+
+window.NXARejectPayment = async (email, courseId) => {
+    if(!confirm('PURGE_TRANSACTION: Are you sure you want to reject this claim?')) return;
+    
+    const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+    const s = profiles[email];
+    if (s && s.pending_courses) {
+        s.pending_courses = s.pending_courses.filter(id => id !== courseId);
+        profiles[email] = s;
+        localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+    }
+
+    const logs = JSON.parse(localStorage.getItem('nxa_payment_logs')) || [];
+    const newLogs = logs.filter(l => !(l.email === email && l.courseId === courseId && l.status === 'pending'));
+    localStorage.setItem('nxa_payment_logs', JSON.stringify(newLogs));
+
+    if (typeof firebase !== 'undefined') {
+        await Cloud.set('nxa_student_profiles', email, s);
+        await Cloud.set('nxa_broadcasts', 'payment_logs', { list: newLogs });
+    }
+    
+    alert(`🔴 REJECTED: Transaction purged from ledger.`);
+    AppState.render(AppState);
+};
+
+window.NXA_VIEW_PROOF = (base64) => {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed'; overlay.style.top = '0'; overlay.style.left = '0';
+    overlay.style.width = '100%'; overlay.style.height = '100%'; overlay.style.background = 'rgba(0,0,0,0.95)';
+    overlay.style.zIndex = '10000'; overlay.style.display = 'flex'; overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center'; overlay.style.padding = '20px';
+    overlay.innerHTML = `
+        <div style="position:relative; width:100%; max-width:500px;">
+            <img src="${base64}" style="width:100%; border-radius:15px; border: 2px solid var(--accent-primary);">
+            <button onclick="this.parentElement.parentElement.remove()" style="position:absolute; top:-40px; right:0; background:#fff; color:#000; border:none; padding:8px 15px; border-radius:8px; font-weight:900;">CLOSE</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
 };
 
 window.NXACreateCourse = async () => {
@@ -1050,7 +1089,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v9.4 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v9.5 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1649,7 +1688,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.4</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.5</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2418,7 +2457,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.4</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.5</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2825,16 +2864,27 @@ class NXAEngine {
                     <div style="max-height: 200px; overflow-y: auto; display: grid; gap: 8px;">
                         ${(JSON.parse(localStorage.getItem('nxa_payment_logs')) || []).length === 0 ? `<div style="font-size: 0.6rem; color: var(--text-dim); text-align: center;">No transactions logged yet.</div>` : ''}
                         ${(JSON.parse(localStorage.getItem('nxa_payment_logs')) || []).map(log => `
-                            <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; border: 1px solid ${log.status === 'pending' ? 'rgba(255, 204, 0, 0.2)' : 'rgba(255,255,255,0.05)'}; font-size: 0.55rem;">
+                            <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; border: 1px solid ${log.status === 'pending' ? 'rgba(255, 204, 0, 0.2)' : 'rgba(255,255,255,0.05)'}; font-size: 0.55rem; margin-bottom: 8px;">
                                 <div style="display: flex; justify-content: space-between; color: ${log.status === 'pending' ? '#ffcc00' : 'var(--accent-primary)'}; font-weight: 900; margin-bottom: 4px;">
                                     <span>${log.email}</span>
                                     <span>₹${log.price}</span>
                                 </div>
                                 <div style="color: #fff; font-weight: 600;">ENROLLED: ${log.courseTitle}</div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                                
+                                ${log.proof ? `
+                                    <div onclick="window.NXA_VIEW_PROOF('${log.proof}')" style="margin-top: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 8px;">
+                                        <img src="${log.proof}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid var(--glass-border);">
+                                        <span style="font-size: 0.45rem; color: var(--accent-primary); font-weight: 900;">VIEW_PROOF_MANIFEST</span>
+                                    </div>
+                                ` : ''}
+
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
                                     <div style="font-size: 0.45rem; color: var(--text-dim);">${new Date(log.timestamp).toLocaleString()}</div>
                                     ${log.status === 'pending' ? `
-                                        <button onclick="window.NXAApprovePayment('${log.email}', '${log.courseId}')" style="background: #00ff6a; color: #000; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.5rem; font-weight: 900; cursor: pointer; box-shadow: 0 0 10px rgba(0,255,106,0.2);">APPROVE</button>
+                                        <div style="display: flex; gap: 5px;">
+                                            <button onclick="window.NXARejectPayment('${log.email}', '${log.courseId}')" style="background: rgba(255, 69, 69, 0.1); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.3); padding: 6px 12px; border-radius: 6px; font-size: 0.5rem; font-weight: 900; cursor: pointer;">REJECT</button>
+                                            <button onclick="window.NXAApprovePayment('${log.email}', '${log.courseId}')" style="background: #00ff6a; color: #000; border: none; padding: 6px 15px; border-radius: 6px; font-size: 0.5rem; font-weight: 900; cursor: pointer; box-shadow: 0 0 10px rgba(0,255,106,0.2);">APPROVE</button>
+                                        </div>
                                     ` : `<span style="color: #00ff6a; font-weight: 900;">VERIFIED ✅</span>`}
                                 </div>
                             </div>
