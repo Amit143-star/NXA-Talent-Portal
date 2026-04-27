@@ -1038,7 +1038,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v9.1 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v9.2 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1637,7 +1637,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.1</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.2</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2406,7 +2406,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.1</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.2</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2634,7 +2634,8 @@ class NXAEngine {
                             const coursePrice = c.price || '999';
                             const isPaid = (myProfile.paid_courses || []).includes(c.id) || String(coursePrice) === '0';
                             return `
-                                <div style="background: var(--glass-bg); border: 1px solid ${isPaid ? 'var(--glass-border)' : 'rgba(255, 204, 0, 0.3)'}; padding: 1.5rem; border-radius: 16px; position: relative;">
+                                <div onclick="${isPaid ? '' : `window.NXA.showPaymentGateway('${c.id}', '${coursePrice}')`}" 
+                                     style="background: ${isPaid ? 'var(--glass-bg)' : 'rgba(255, 204, 0, 0.02)'}; border: 1px solid ${isPaid ? 'var(--glass-border)' : 'rgba(255, 204, 0, 0.3)'}; padding: 1.5rem; border-radius: 16px; position: relative; cursor: pointer; transition: 0.3s;">
                                     <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; border-radius: 4px 0 0 4px;"></div>
                                     
                                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -2693,6 +2694,20 @@ class NXAEngine {
         const courses = this.getCourses();
         const course = courses.find(c => c.id === courseId);
         if (!course) return this.viewCourses(state);
+        
+        // STRICT SECURITY GATE (v9.2)
+        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
+        const p = profiles[state.user.email.toLowerCase().trim()] || {};
+        const isPaid = (p.paid_courses || []).includes(courseId) || String(course.price) === '0';
+        
+        if (!isPaid && state.role !== 'admin' && state.user.email !== 'nxasupertalent@gmail.com') {
+            setTimeout(() => {
+                alert('🔴 ACCESS_DENIED: Enrollment manifestation required for this unit.');
+                AppState.setView('courses');
+            }, 100);
+            return '<div style="padding: 3rem; text-align: center; color: #ffcc00; font-weight: 900;">AUTHORIZING_SECURE_NODE...</div>';
+        }
+
         const refs   = course.refs   || [];
         const videos = course.videos || [];
         const docs   = course.docs   || [];
