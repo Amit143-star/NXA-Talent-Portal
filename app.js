@@ -1426,7 +1426,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.4</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v7.5</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -1442,10 +1442,8 @@ class NXAEngine {
             </nav>
             <nav class="sidebar-nav" id="sidebar">
                 <div class="sidebar-item ${state.view === 'home' ? 'active' : ''}" data-view="home"><span class="icon">🏠</span> Home</div>
-                ${isStudent ? `
                 <div class="sidebar-item ${state.view === 'leetcode' ? 'active' : ''}" data-view="leetcode"><span class="icon">💻</span> Leet Code</div>
                 <div class="sidebar-item ${state.view === 'attendance' ? 'active' : ''}" data-view="attendance"><span class="icon">📅</span> Attendance</div>
-                <div class="sidebar-item ${state.view === 'receipts' ? 'active' : ''}" data-view="receipts"><span class="icon">💼</span> Financial Vault</div>
                 <div class="sidebar-item ${state.view === 'projects' ? 'active' : ''}" data-view="projects"><span class="icon">📂</span> Projects</div>
                 <div class="sidebar-item ${state.view === 'internships' ? 'active' : ''}" data-view="internships"><span class="icon">🤝</span> Internships</div>
                 <div class="sidebar-item ${state.view === 'career' ? 'active' : ''}" data-view="career"><span class="icon">🚀</span> Career</div>
@@ -1566,7 +1564,6 @@ class NXAEngine {
         if (state.view === 'internship_assessment_result_pass') return this.viewAssessmentSuccess(state);
         if (state.view === 'leetcode') return this.viewLeetcode(state);
         if (state.view === 'notifications') return this.viewNotifications(state);
-        if (state.view === 'receipts') return this.viewReceipts(state);
         if (state.view === 'live') return this.viewLive(state);
         if (state.view === 'courses') return (state.role === 'admin' || state.user.email === 'nxasupertalent@gmail.com') ? this.viewCourseAdmin(state) : this.viewCourses(state);
         if (state.view === 'self') return this.viewSelf(state);
@@ -2241,6 +2238,37 @@ class NXAEngine {
                     </div>
                 `}
 
+                <!-- FINANCIAL VAULT (INTEGRATED) -->
+                <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(0, 255, 106, 0.15); margin-top: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.8rem;">
+                        <span style="font-size: 1.2rem;">💼</span>
+                        <h3 style="font-family: var(--font-heading); font-size: 1rem; margin: 0; letter-spacing: 1px; color: #fff;">FINANCIAL_VAULT</h3>
+                    </div>
+                    
+                    ${(pd && pd.paid_courses && pd.paid_courses.length > 0) ? `
+                        <div style="display: grid; gap: 0.8rem;">
+                            ${pd.paid_courses.map(courseId => {
+                                const courses = window.NXA.getCourses();
+                                const c = courses.find(item => item.id === courseId);
+                                return `
+                                    <div style="background: rgba(0, 255, 106, 0.05); border: 1px solid rgba(0, 255, 106, 0.1); padding: 1rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <div style="font-size: 0.7rem; color: #fff; font-weight: 800;">${c ? c.title : 'Course_' + courseId}</div>
+                                            <div style="font-size: 0.5rem; color: var(--text-dim); margin-top: 2px;">INV_REF: NXA_${String(courseId).substring(0,8).toUpperCase()}</div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div style="font-size: 0.7rem; color: #00ff6a; font-weight: 900;">PAID ₹${c ? c.price : '---'}</div>
+                                            <div style="font-size: 0.45rem; color: var(--text-dim);">VERIFIED ✓</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    ` : `
+                        <div style="text-align: center; padding: 1rem; color: var(--text-dim); font-size: 0.65rem;">No verified receipts Manifested.</div>
+                    `}
+                </div>
+
                 <!-- ULTRA-SLIM SESSION ACTION -->
                 <div style="display: none !important; background: rgba(255, 69, 69, 0.02); border: 1px solid rgba(255, 69, 69, 0.1); padding: 1rem; border-radius: 18px; justify-content: space-between; align-items: center; margin-top: 1rem;">
                     <span style="color: #ff4545; font-size: 0.55rem; font-weight: 900; letter-spacing: 1px;">CRITICAL_OVERRIDE</span>
@@ -2259,57 +2287,6 @@ class NXAEngine {
                     };
                 }, 300);
             </script>
-        `;
-    }
-
-    viewReceipts(state) {
-        const profiles = JSON.parse(localStorage.getItem('nxa_student_profiles')) || {};
-        const pd = profiles[state.user.email.toLowerCase().trim()] || {};
-        const courses = this.getCourses();
-
-        return `
-            <section class="section" style="padding: 1.5rem;">
-                <div style="margin-bottom: 2rem;">
-                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.5rem;">💼</span>
-                        <h1 style="font-size: 1.8rem; margin: 0; font-family: var(--font-heading);">FINANCIAL_VAULT</h1>
-                    </div>
-                    <p style="color: var(--text-dim); font-size: 0.7rem; letter-spacing: 1px;">CENTRALIZED DOCUMENT REPOSITORY</p>
-                </div>
-
-                <div style="background: var(--glass-bg); padding: 1.5rem; border-radius: 24px; border: 1px solid var(--glass-border); min-height: 400px;">
-                    ${(pd.paid_courses && pd.paid_courses.length > 0) ? `
-                        <div style="display: grid; gap: 1rem;">
-                            ${pd.paid_courses.map(courseId => {
-                                const c = courses.find(item => item.id === courseId);
-                                return `
-                                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 16px; position: relative; overflow: hidden;">
-                                        <div style="position: absolute; right: -10px; top: -10px; font-size: 3rem; opacity: 0.05; transform: rotate(-15deg);">🧾</div>
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 2;">
-                                            <div>
-                                                <span style="display: block; font-size: 0.5rem; color: #00ff6a; font-weight: 900; letter-spacing: 2px; margin-bottom: 4px;">OFFICIAL RECEIPT</span>
-                                                <h3 style="margin: 0; font-size: 1rem; color: #fff;">${c ? c.title : 'Course_' + courseId}</h3>
-                                                <div style="font-size: 0.55rem; color: var(--text-dim); margin-top: 8px; font-family: monospace;">TXN_ID: ${String(courseId).toUpperCase()}</div>
-                                                <div style="font-size: 0.55rem; color: var(--text-dim); font-family: monospace;">ISSUED_TO: ${state.user.name.toUpperCase()}</div>
-                                            </div>
-                                            <div style="text-align: right;">
-                                                <div style="font-size: 1.2rem; color: #00ff6a; font-weight: 900;">₹${c ? c.price : '---'}</div>
-                                                <div style="margin-top: 10px; display: inline-block; background: rgba(0, 255, 106, 0.1); color: #00ff6a; padding: 4px 10px; border-radius: 4px; font-size: 0.5rem; font-weight: 900; border: 1px solid rgba(0, 255, 106, 0.3);">VERIFIED ✓</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    ` : `
-                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; text-align: center; color: var(--text-dim);">
-                            <span style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">📂</span>
-                            <p style="font-size: 0.8rem;">No documents manifested in the vault.</p>
-                            <button onclick="AppState.setView('courses')" class="btn-primary" style="margin-top: 1.5rem; padding: 10px 20px; font-size: 0.65rem;">EXPLORE_COURSES</button>
-                        </div>
-                    `}
-                </div>
-            </section>
         `;
     }
 
