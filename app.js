@@ -2770,7 +2770,7 @@ class NXAEngine {
                                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                         <div style="flex: 1;">
                                             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
-                                                <span style="font-size: 0.5rem; color: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; font-weight: 800; letter-spacing: 1px;">${c.domain.toUpperCase()}</span>
+                                                <span style="font-size: 0.5rem; color: ${isPaid ? 'var(--accent-primary)' : '#ffcc00'}; font-weight: 800; letter-spacing: 1px;">${(c.domain || 'Industrial_Core').toUpperCase()}</span>
                                                 ${!isPaid ? `<span style="font-size: 10px;">🔒</span>` : ''}
                                             </div>
                                             <h3 style="margin: 0; font-size: 1.1rem; color: #fff;">${c.title}</h3>
@@ -2861,7 +2861,7 @@ class NXAEngine {
                     <button onclick="AppState.setView('courses')" style="background: none; border: none; color: var(--accent-primary); font-size: 1.3rem; cursor: pointer;">←</button>
                     <div>
                         <h2 style="font-family: var(--font-heading); font-size: 1.3rem; margin: 0; letter-spacing: 1px;">${course.title}</h2>
-                        <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 800;">${course.domain}</span>
+                        <span style="color: var(--accent-primary); font-size: 0.55rem; font-weight: 800;">${(course.domain || 'Industrial_Core').toUpperCase()}</span>
                     </div>
                 </div>
 
@@ -3021,7 +3021,7 @@ class NXAEngine {
                         <div style="background: var(--glass-bg); border-radius: 16px; border: 1px solid var(--glass-border); overflow: hidden; position: relative;">
                             <div style="padding: 1.2rem; display: flex; justify-content: space-between; align-items: flex-start;">
                                 <div style="flex:1;">
-                                    <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">${c.domain.toUpperCase()}</span>
+                                    <span style="color: var(--accent-primary); font-size: 0.5rem; font-weight: 800; letter-spacing: 1px;">${(c.domain || 'Industrial_Core').toUpperCase()}</span>
                                     <h3 style="margin: 4px 0; font-size: 1rem; color: #fff;">${c.title}</h3>
                                     <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">
                                         <div style="font-size: 0.5rem; color: var(--text-dim);">PRICE: ₹</div>
