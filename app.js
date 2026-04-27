@@ -372,17 +372,19 @@ window.NXAInitAttendance = (email) => {
         const qrEl = document.getElementById('qrcode');
         if (qrEl && typeof QRCode !== 'undefined') {
             qrEl.innerHTML = ''; // clear old
-            new QRCode(qrEl, {
-                text: `ATT|${email}|NXA`,
-                width: 200, height: 200,
-                colorDark: '#000000', colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
+            try {
+                new QRCode(qrEl, {
+                    text: `ATT|${email}|NXA`,
+                    width: 200, height: 200,
+                    colorDark: '#000000', colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } catch (e) { console.error("QR_GEN_ERR:", e); }
         }
         if (document.getElementById('student_punch_search')) {
             window.NXASearchPunch('');
         }
-    }, 100);
+    }, 250); // Increased delay for slower devices
 };
 
 window.NXADeployProject = async () => {
@@ -2049,7 +2051,8 @@ class NXAEngine {
             const target = new Date();
             target.setHours(parseInt(h), parseInt(m), 0, 0);
             const diffInMin = (now - target) / (1000 * 60);
-            return diffInMin >= -15 && diffInMin <= 30;
+            // Window: 15 min before → 60 min after (expanded)
+            return diffInMin >= -15 && diffInMin <= 60;
         })();
 
         const alreadyMarked = myAttendance[todayStr] === true;
@@ -2072,11 +2075,11 @@ class NXAEngine {
                 <div style="background: var(--glass-bg); padding: 1.2rem; border-radius: 20px; border: 1px solid var(--accent-primary); margin-bottom: 1.5rem;">
                     <h3 style="margin: 0 0 1rem 0; font-size: 0.75rem; letter-spacing: 2px; color: var(--accent-primary);">⚓ SESSION ANCHOR</h3>
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
-                        <input id="scheduled_time" type="time" value="${session.time || '10:00'}" style="flex:1; padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.5); color: #fff; font-size: 0.9rem;">
+                        <input id="scheduled_time" type="time" value="${session.time || now.toTimeString().slice(0,5)}" style="flex:1; padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.5); color: #fff; font-size: 0.9rem;">
                         <button onclick="window.NXAAnchorSession()" style="background: var(--accent-primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">ANCHOR</button>
                         ${session.active ? `<button onclick="window.NXAStopSession()" style="background: rgba(255,69,69,0.1); color: #ff4545; border: 1px solid #ff4545; padding: 10px 16px; border-radius: 8px; font-size: 0.65rem; font-weight: 900; cursor: pointer;">STOP</button>` : ''}
                     </div>
-                    <p style="font-size: 0.45rem; color: var(--text-dim); text-transform: uppercase;">QR window: 15 min before → 30 min after session time</p>
+                    <p style="font-size: 0.45rem; color: var(--text-dim); text-transform: uppercase;">QR window: 15 min before → 60 min after session time</p>
 
                     <!-- QR SCANNER -->
                     <div style="margin-top: 1rem; border-top: 1px dashed var(--glass-border); padding-top: 1rem;">
