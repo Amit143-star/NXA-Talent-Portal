@@ -676,44 +676,79 @@ window.NXAConfirmPayment = async (courseId) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
         const proofBase64 = e.target.result;
+        
+        const modal = document.getElementById('course_pay_gateway');
+        const container = modal.querySelector('div[style*="background: var(--glass-bg)"]');
+        const originalContent = container.innerHTML;
+        
+        // NEURAL SYSTEM ANALYSIS SIMULATION (v9.9)
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 2.5rem; margin-bottom: 20px; animation: pulse 1.5s infinite;">⚙️</div>
+                <h3 style="color: var(--accent-primary); font-size: 0.8rem; letter-spacing: 2px; margin-bottom: 15px;">NEURAL_ANALYSIS_IN_PROGRESS</h3>
+                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; margin-bottom: 20px;">
+                    <div id="manifest_progress" style="width: 0%; height: 100%; background: var(--accent-primary); transition: width 5s linear;"></div>
+                </div>
+                <div id="manifest_status" style="font-size: 0.55rem; color: var(--text-dim); font-family: monospace;">ANALYZING_UTR: ${utr}...</div>
+            </div>
+        `;
+        
+        setTimeout(() => { document.getElementById('manifest_progress').style.width = '100%'; }, 100);
+        
+        const statuses = ['FETCHING_NODE_DATA', 'VERIFYING_UTR_MANIFEST', 'CRYPTOGRAPHIC_HANDSHAKE', 'MANIFESTING_AUTHORIZATION'];
+        let sIdx = 0;
+        const sInterval = setInterval(() => {
+            if(sIdx < statuses.length) {
+                document.getElementById('manifest_status').innerText = statuses[sIdx] + '...';
+                sIdx++;
+            } else { clearInterval(sInterval); }
+        }, 1200);
 
-        // SYSTEM VERIFICATION QUEUE (v9.8)
-        if (!s.pending_courses) s.pending_courses = [];
-        if (!s.pending_courses.includes(courseId)) {
-            s.pending_courses.push(courseId);
-        }
-        
-        s.last_payment_timestamp = new Date().toISOString();
-        profiles[email] = s;
-        localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
-        
-        // LOG TRANSACTION FOR SYSTEM AUDIT
-        const logs = JSON.parse(localStorage.getItem('nxa_payment_logs')) || [];
-        const courses = window.NXA.getCourses();
-        const course = courses.find(c => c.id === courseId);
-        
-        const newLog = {
-            email: email,
-            courseId: courseId,
-            courseTitle: course ? course.title : 'Unknown',
-            price: course ? course.price : '999',
-            status: 'pending',
-            utr: utr,
-            proof: proofBase64,
-            timestamp: new Date().toISOString()
-        };
-        
-        logs.unshift(newLog);
-        const limitedLogs = logs.slice(0, 50);
-        localStorage.setItem('nxa_payment_logs', JSON.stringify(limitedLogs));
+        setTimeout(async () => {
+            // AUTOMATED SYSTEM MANIFESTATION
+            if (!s.paid_courses) s.paid_courses = [];
+            if (!s.paid_courses.includes(courseId)) {
+                s.paid_courses.push(courseId);
+            }
+            if (s.pending_courses) {
+                s.pending_courses = s.pending_courses.filter(id => id !== courseId);
+            }
+            
+            s.last_payment_timestamp = new Date().toISOString();
+            profiles[email] = s;
+            localStorage.setItem('nxa_student_profiles', JSON.stringify(profiles));
+            
+            const logs = JSON.parse(localStorage.getItem('nxa_payment_logs')) || [];
+            const courses = window.NXA.getCourses();
+            const course = courses.find(c => c.id === courseId);
+            
+            logs.unshift({
+                email: email,
+                courseId: courseId,
+                courseTitle: course ? course.title : 'Unknown',
+                price: course ? course.price : '999',
+                status: 'verified',
+                type: 'SYSTEM_AUTOMATED_MANIFEST',
+                utr: utr,
+                proof: proofBase64,
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem('nxa_payment_logs', JSON.stringify(logs.slice(0, 50)));
 
-        if (typeof firebase !== 'undefined') {
-            await Cloud.set('nxa_student_profiles', email, s);
-            await Cloud.set('nxa_broadcasts', 'payment_logs', { list: limitedLogs });
-        }
-        
-        alert('⚙️ SYSTEM_MANIFEST: Transaction ID and Proof submitted. System status: PENDING_VERIFICATION.');
-        AppState.setView('courses');
+            if (typeof firebase !== 'undefined') {
+                await Cloud.set('nxa_student_profiles', email, s);
+                await Cloud.set('nxa_broadcasts', 'payment_logs', { list: logs.slice(0, 50) });
+            }
+            
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 20px; color: #00ff6a;">✅</div>
+                    <h3 style="color: #00ff6a; font-size: 0.8rem; letter-spacing: 2px; margin-bottom: 15px;">SYSTEM_MANIFEST_SUCCESSFUL</h3>
+                    <p style="font-size: 0.6rem; color: var(--text-dim); margin-bottom: 20px;">AUTHORIZATION_COMPLETE. ENJOY YOUR LEARNING MISSION.</p>
+                    <button onclick="AppState.setView('course_view_${courseId}')" style="background: #00ff6a; color: #000; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 900; font-size: 0.7rem; cursor: pointer;">ENTER_UNIT</button>
+                </div>
+            `;
+        }, 5500);
     };
     reader.readAsDataURL(proofInput.files[0]);
 };
@@ -1091,7 +1126,7 @@ class NXAEngine {
     }
 
     init() {
-        console.log("NXA CORE: INITIALIZING MODULES... v9.8 DEPLOYED");
+        console.log("NXA CORE: INITIALIZING MODULES... v9.9 DEPLOYED");
         AppState.addListener((state) => this.render(state));
 
         // Pre-seed a default student account if none exist
@@ -1690,7 +1725,7 @@ class NXAEngine {
                     <div class="logo" onclick="AppState.setView('home')" style="cursor: pointer;">
                         <button id="menuToggle" class="btn-icon" style="background:none; border:none; color:white; font-size:1.5rem; margin-right:10px; cursor:pointer;">☰</button>
                         <span class="nx" style="margin-left: 5px;">NXA</span><span class="talent">TALENT</span>
-                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.8</div>
+                        <div style="font-size: 8px; color: var(--accent-primary); margin-left: 10px; font-weight: 900;">v9.9</div>
                     </div>
                     <div class="user-meta" style="display: flex; align-items: center; gap: 15px;">
                         <div onclick="AppState.setView('notifications')" style="cursor: pointer; position: relative; display: flex; align-items: center; color: var(--text-dim); transition: 0.3s; padding: 8px;">
@@ -2459,7 +2494,7 @@ class NXAEngine {
                         <h2 style="font-family: var(--font-heading); font-size: 1.6rem; margin: 0; letter-spacing: 2px; color: #fff;">IDENTITY_NEXUS</h2>
                         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                             <span style="width: 6px; height: 6px; background: #00ff6a; border-radius: 50%; box-shadow: 0 0 8px #00ff6a;"></span>
-                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.8</span>
+                            <span style="color: #00ff6a; font-size: 0.55rem; font-weight: 800; letter-spacing: 1px;">SYNC_STABLE v9.9</span>
                         </div>
                     </div>
                     <button onclick="window.NXA.viewRegister(AppState, true)" style="background: rgba(0, 242, 255, 0.1); color: var(--accent-primary); border: 1px solid var(--accent-primary); padding: 6px 14px; border-radius: 6px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">
@@ -2889,12 +2924,7 @@ class NXAEngine {
 
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
                                     <div style="font-size: 0.45rem; color: var(--text-dim);">${new Date(log.timestamp).toLocaleString()}</div>
-                                    ${log.status === 'pending' ? `
-                                        <div style="display: flex; gap: 5px;">
-                                            <button onclick="window.NXARejectPayment('${log.email}', '${log.courseId}')" style="background: rgba(255, 69, 69, 0.1); color: #ff4545; border: 1px solid rgba(255, 69, 69, 0.3); padding: 6px 12px; border-radius: 6px; font-size: 0.5rem; font-weight: 900; cursor: pointer;">SYSTEM_REJECT</button>
-                                            <button onclick="window.NXAApprovePayment('${log.email}', '${log.courseId}')" style="background: #00ff6a; color: #000; border: none; padding: 6px 15px; border-radius: 6px; font-size: 0.5rem; font-weight: 900; cursor: pointer; box-shadow: 0 0 10px rgba(0,255,106,0.2);">SYSTEM_APPROVE</button>
-                                        </div>
-                                    ` : `<span style="color: #00ff6a; font-weight: 900;">VERIFIED ✅</span>`}
+                                    <span style="color: #00ff6a; font-weight: 900;">SYSTEM_AUTHORIZED ✅</span>
                                 </div>
                             </div>
                         `).join('')}
